@@ -24,4 +24,4 @@ class CapNhatNhanVien(BaseModel):
 
 class DangNhapPin(BaseModel):
     pin: str
-    requested_role: str = "orderer"
+    requested_role: str = ""

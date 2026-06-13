@@ -94,16 +94,11 @@ def _chuan_hoa_pin(pin_raw: str) -> str:
 
 @auth_router.post("/pin-login")
 def dang_nhap_pin(data: DangNhapPin, db: Session = Depends(get_db)):
-    vai_tro = data.requested_role.strip().lower()
-    if vai_tro not in VAI_TRO_HOP_LE:
-        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ")
     nv = db.query(NhanVien).filter(NhanVien.pin == data.pin.strip()).first()
     if not nv:
         raise HTTPException(status_code=401, detail="PIN không đúng")
     if int(getattr(nv, "is_active", 1) or 0) != 1:
         raise HTTPException(status_code=403, detail="Tài khoản đang bị khóa")
-    if nv.role != vai_tro:
-        raise HTTPException(status_code=403, detail="PIN không thuộc vai trò này")
     return {"id": nv.id, "name": nv.name, "phone": nv.phone, "role": nv.role}
 
 

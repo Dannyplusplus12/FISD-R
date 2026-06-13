@@ -26,13 +26,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
   // Sends the PIN to the backend.  On success, saves the session.
   // On failure, sets state to AsyncError so the UI can show the message.
-  Future<bool> loginWithPin({required String pin, required String role}) async {
+  Future<bool> loginWithPin({required String pin}) async {
     state = const AsyncValue.loading();
     try {
       final dio = _ref.read(apiClientProvider);
       final response = await dio.post(
         ApiEndpoints.pinLogin,
-        data: {'pin': pin, 'requested_role': role},
+        data: {'pin': pin},
       );
       final data = response.data as Map<String, dynamic>;
       await _ref.read(sessionProvider.notifier).login(

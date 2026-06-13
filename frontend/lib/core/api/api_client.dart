@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Backend URL ───────────────────────────────────────────────────────────────
 // Change this one constant to point the whole app at a different server.
-const String kBackendUrl = 'https://backend-production-5efd.up.railway.app';
+const String kBackendUrl = 'https://backend-production-0935.up.railway.app';
 
 // ── Dio instance provider ─────────────────────────────────────────────────────
 //
