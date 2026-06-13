@@ -59,7 +59,7 @@ class AreasNotifier extends AsyncNotifier<List<AreaSummary>> {
     await refresh();
   }
 
-  Future<void> update(int id, String name) async {
+  Future<void> edit(int id, String name) async {
     await ref.read(customerRepositoryProvider).updateArea(id, name);
     await refresh();
   }

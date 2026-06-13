@@ -149,12 +149,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-// ── Root Widget with Auth Gate ────────────────────────────────────────────────
+// ── Auth Gate ─────────────────────────────────────────────────────────────────
 //
 // Shows LoginPage when not logged in, AppShell when logged in.
 // Riverpod rebuilds this automatically when the session changes.
-class RootWidget extends ConsumerWidget {
-  const RootWidget({super.key});
+class AuthGate extends ConsumerWidget {
+  const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

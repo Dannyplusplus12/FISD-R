@@ -3,7 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
 import 'core/session/session.dart';
-import 'widgets/app_shell.dart';
+import 'widgets/app_shell.dart' show AppShell, AuthGate;
 
 // ── Entry Point ───────────────────────────────────────────────────────────────
 //
@@ -75,7 +75,7 @@ class _FisdAppState extends ConsumerState<FisdApp> {
       // RootWidget handles the auth gate:
       //   not logged in → LoginPage
       //   logged in      → AppShell (sidebar + content)
-      home: const RootWidget(),
+      home: const AuthGate(),
     );
   }
 }

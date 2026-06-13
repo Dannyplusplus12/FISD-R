@@ -1,0 +1,642 @@
+import json
+import os
+import threading
+import uuid
+from typing import List, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.database import get_db, SessionLocal
+from app.models import BienThe, ChiTietDon, DonHang, KhachHang, KhuVuc, NhanVien
+from app.schemas.don_hang import (
+    CapNhatNgayDon, XacNhanGiaoItem, XacNhanLocalAnh,
+    YeuCauGiaoHang, YeuCauNhanDon, YeuCauThanhToan, YeuCauXacNhanGiao,
+)
+from app.utils import now_vn, now_vn_ts, parse_duong_dan_anh
+
+router = APIRouter(tags=["Đơn hàng"])
+
+_EXTENSIONS_ANH_HOP_LE = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
+_MAX_ANH_BYTES = settings.MAX_DELIVERY_PHOTO_MB * 1024 * 1024
+
+
+def _thu_muc_upload() -> str:
+    thu_muc = settings.DELIVERY_UPLOAD_DIR or "/tmp/delivery_proofs"
+    os.makedirs(thu_muc, exist_ok=True)
+    return thu_muc
+
+
+def _luu_anh_giao_hang(don_id: int, file: UploadFile) -> str:
+    ten_file = (file.filename or "proof.jpg").strip()
+    ext = os.path.splitext(ten_file)[1].lower()
+    if ext not in _EXTENSIONS_ANH_HOP_LE:
+        raise HTTPException(status_code=400, detail="Ảnh giao hàng phải là jpg/png/webp/heic")
+    ten_an_toan = f"order_{don_id}_{now_vn().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+    abs_path = os.path.join(_thu_muc_upload(), ten_an_toan)
+    tong = 0
+    with open(abs_path, "wb") as f:
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            tong += len(chunk)
+            if tong > _MAX_ANH_BYTES:
+                f.close()
+                try:
+                    os.remove(abs_path)
+                except Exception:
+                    pass
+                raise HTTPException(status_code=400, detail=f"Ảnh vượt giới hạn {settings.MAX_DELIVERY_PHOTO_MB}MB")
+            f.write(chunk)
+    return f"/delivery-proofs/{ten_an_toan}"
+
+
+def _lay_khu_vuc_mac_dinh(db: Session):
+    kv = db.query(KhuVuc).order_by(KhuVuc.id).first()
+    return kv.id if kv else None
+
+
+def _serialize_don(don: DonHang) -> dict:
+    chi_tiet, tong_sl = [], 0
+    for ct in (don.chi_tiet or []):
+        sl = int(ct.quantity or 0)
+        tong_sl += sl
+        chi_tiet.append({
+            "order_item_id": ct.id, "product_name": ct.product_name,
+            "variant_id": ct.variant_id, "variant_info": ct.variant_info,
+            "quantity": sl, "price": int(ct.price or 0),
+            "current_stock": None, "enough_stock": True,
+        })
+    anh_paths = parse_duong_dan_anh(don.delivery_photo_path)
+    created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
+    assigned_at_str = don.assigned_at if isinstance(don.assigned_at, str) else (don.assigned_at.strftime("%Y-%m-%d %H:%M") if don.assigned_at else "")
+    delivered_at_str = don.delivered_at if isinstance(don.delivered_at, str) else (don.delivered_at.strftime("%Y-%m-%d %H:%M") if don.delivered_at else "")
+    return {
+        "id": don.id,
+        "created_at": created_at_str,
+        "customer_name": don.customer_name or "Khách lẻ",
+        "customer_id": don.customer_id,
+        "total_amount": int(don.total_amount or 0),
+        "total_qty": tong_sl,
+        "status": don.status,
+        "picker_note": (don.picker_note or ""),
+        "created_by_employee_id": don.created_by_employee_id,
+        "created_by_employee_name": (don.nguoi_tao.name if getattr(don, "nguoi_tao", None) else ""),
+        "assigned_picker_id": don.assigned_picker_id,
+        "assigned_picker_name": (don.picker.name if getattr(don, "picker", None) else ""),
+        "assigned_at": assigned_at_str,
+        "delivered_by_id": don.delivered_by_id,
+        "delivered_by_name": (don.nguoi_giao.name if getattr(don, "nguoi_giao", None) else ""),
+        "delivered_at": delivered_at_str,
+        "delivery_photo_path": (don.delivery_photo_path or ""),
+        "delivery_photo_paths": anh_paths,
+        "items": chi_tiet,
+    }
+
+
+def _gui_anh_telegram_async(don_id: int, abs_paths: list, caption: str):
+    try:
+        token = settings.TELEGRAM_BOT_TOKEN
+        chat_id = settings.TELEGRAM_CHAT_ID
+        if not token or not chat_id:
+            return
+        db = SessionLocal()
+        try:
+            with httpx.Client(timeout=60) as client:
+                if len(abs_paths) == 1:
+                    with open(abs_paths[0], "rb") as f:
+                        r = client.post(f"https://api.telegram.org/bot{token}/sendPhoto",
+                                        files={"photo": f}, data={"chat_id": chat_id, "caption": caption})
+                    if r.status_code == 200:
+                        result = r.json().get("result") or {}
+                        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+                        if don and result:
+                            photos = result.get("photo") or []
+                            if photos:
+                                don.telegram_file_id = photos[-1].get("file_id", "")
+                            don.telegram_message_id = str(result.get("message_id") or "")
+                            db.commit()
+                else:
+                    files, media, opened = {}, [], []
+                    for i, path in enumerate(abs_paths):
+                        key = f"file{i}"
+                        fh = open(path, "rb")
+                        opened.append(fh)
+                        files[key] = fh
+                        item = {"type": "photo", "media": f"attach://{key}"}
+                        if i == 0 and caption:
+                            item["caption"] = caption
+                        media.append(item)
+                    try:
+                        client.post(f"https://api.telegram.org/bot{token}/sendMediaGroup",
+                                    files=files, data={"chat_id": chat_id, "media": json.dumps(media, ensure_ascii=False)})
+                    finally:
+                        for fh in opened:
+                            try:
+                                fh.close()
+                            except Exception:
+                                pass
+        finally:
+            db.close()
+    except Exception as e:
+        print("Warning: telegram backup failed:", e)
+
+
+def _xoa_don_voi_logic(don: DonHang, db: Session):
+    if don.status in ("completed", "approved", "assigned"):
+        for ct in don.chi_tiet:
+            if ct.variant_id:
+                bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+                if bt:
+                    bt.stock = (bt.stock or 0) + (ct.quantity or 0)
+        if don.status == "completed" and don.customer_id:
+            kh = db.query(KhachHang).filter(KhachHang.id == don.customer_id).first()
+            if kh and don.total_amount:
+                kh.debt = (kh.debt or 0) - int(don.total_amount or 0)
+    db.query(ChiTietDon).filter(ChiTietDon.order_id == don.id).delete()
+    db.delete(don)
+
+
+# ─── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.get("/orders")
+def lay_don_hang(page: int = 1, limit: int = 20, db: Session = Depends(get_db)):
+    try:
+        skip = (page - 1) * limit
+        tong = db.query(DonHang).filter(DonHang.status == "completed").count()
+        don_hang = db.query(DonHang).filter(DonHang.status == "completed").order_by(desc(DonHang.id)).offset(skip).limit(limit).all()
+        ket_qua = []
+        for don in don_hang:
+            chi_tiet, tong_sl = [], 0
+            for ct in (don.chi_tiet or []):
+                sl = int(ct.quantity or 0)
+                tong_sl += sl
+                chi_tiet.append({"order_item_id": ct.id, "product_name": ct.product_name, "variant_id": ct.variant_id, "variant_info": ct.variant_info, "quantity": sl, "price": int(ct.price or 0)})
+            created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
+            ket_qua.append({"id": don.id, "created_at": created_at_str, "customer_name": don.customer_name or "Khách lẻ", "total_amount": int(don.total_amount or 0), "total_qty": tong_sl, "picker_note": (don.picker_note or ""), "status": don.status, "items": chi_tiet})
+        return {"data": ket_qua, "total": tong, "page": page, "limit": limit}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tải hóa đơn: {e}")
+
+
+@router.delete("/orders/{don_id}")
+def xoa_don(don_id: int, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Hóa đơn không tồn tại")
+    if don.status != "completed":
+        raise HTTPException(status_code=400, detail="Chỉ có thể xóa đơn hàng đã hoàn thành")
+    try:
+        _xoa_don_voi_logic(don, db)
+        db.commit()
+        return {"detail": "Đã xóa hóa đơn và hoàn tác kho + công nợ"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/orders/{don_id}/date")
+def cap_nhat_ngay_don(don_id: int, data: CapNhatNgayDon, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
+    try:
+        don.created_at = data.created_at
+        don.created_ts = now_vn_ts()
+        db.commit()
+        return {"status": "updated"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/checkout")
+def thanh_toan_truc_tiep(data: YeuCauThanhToan, db: Session = Depends(get_db)):
+    try:
+        from sqlalchemy import func as sqla_func
+        tong = sum(item.quantity * item.price for item in data.cart)
+        for item in data.cart:
+            bt = db.query(BienThe).filter(BienThe.id == item.variant_id).first()
+            if not bt or bt.stock < item.quantity:
+                raise HTTPException(status_code=400, detail=f"SP {item.product_name} thiếu hàng")
+            bt.stock -= item.quantity
+        ten_khach = data.customer_name.strip()
+        khach = None
+        if ten_khach and ten_khach != "Khách lẻ":
+            khach = db.query(KhachHang).filter(sqla_func.lower(KhachHang.name) == sqla_func.lower(ten_khach)).first()
+            if not khach:
+                khach = KhachHang(name=ten_khach, phone=data.customer_phone, debt=0, area_id=_lay_khu_vuc_mac_dinh(db))
+                db.add(khach)
+                db.flush()
+            khach.debt += tong
+        don = DonHang(total_amount=tong, customer_name=khach.name if khach else "Khách lẻ",
+                      customer_id=khach.id if khach else None, is_draft=0, status="completed",
+                      created_by_employee_id=data.employee_id, created_at=now_vn().strftime("%Y-%m-%d %H:%M"), created_ts=now_vn_ts())
+        db.add(don)
+        db.flush()
+        for item in data.cart:
+            db.add(ChiTietDon(order_id=don.id, product_name=item.product_name, variant_id=item.variant_id,
+                              variant_info=f"{item.color}-{item.size}", quantity=item.quantity, price=item.price))
+        db.commit()
+        return {"status": "success"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/checkout/draft")
+def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
+    try:
+        from sqlalchemy import func as sqla_func
+        tong = sum(item.quantity * item.price for item in data.cart)
+        ten_khach = data.customer_name.strip()
+        khach = None
+        if ten_khach and ten_khach != "Khách lẻ":
+            khach = db.query(KhachHang).filter(sqla_func.lower(KhachHang.name) == sqla_func.lower(ten_khach)).first()
+            if not khach:
+                khach = KhachHang(name=ten_khach, phone=data.customer_phone, debt=0, area_id=_lay_khu_vuc_mac_dinh(db))
+                db.add(khach)
+                db.flush()
+        don = DonHang(total_amount=tong, customer_name=khach.name if khach else "Khách lẻ",
+                      customer_id=khach.id if khach else None, is_draft=1, status="pending",
+                      created_by_employee_id=data.employee_id, created_at=now_vn().strftime("%Y-%m-%d %H:%M"), created_ts=now_vn_ts())
+        db.add(don)
+        db.flush()
+        for item in data.cart:
+            db.add(ChiTietDon(order_id=don.id, product_name=item.product_name, variant_id=item.variant_id,
+                              variant_info=f"{item.color}-{item.size}", quantity=item.quantity, price=item.price))
+        db.commit()
+        return {"status": "success", "order_id": don.id, "message": "Đơn hàng đã gửi chờ duyệt"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/checkout/desktop-dispatch")
+def thanh_toan_desktop(data: YeuCauThanhToan, db: Session = Depends(get_db)):
+    try:
+        from sqlalchemy import func as sqla_func
+        tong = sum(item.quantity * item.price for item in data.cart)
+        for item in data.cart:
+            bt = db.query(BienThe).filter(BienThe.id == item.variant_id).first()
+            if not bt or int(bt.stock or 0) < int(item.quantity or 0):
+                raise HTTPException(status_code=400, detail=f"SP {item.product_name} thiếu hàng")
+            bt.stock = int(bt.stock or 0) - int(item.quantity or 0)
+        ten_khach = data.customer_name.strip()
+        khach = None
+        if ten_khach and ten_khach != "Khách lẻ":
+            khach = db.query(KhachHang).filter(sqla_func.lower(KhachHang.name) == sqla_func.lower(ten_khach)).first()
+            if not khach:
+                khach = KhachHang(name=ten_khach, phone=data.customer_phone, debt=0, area_id=_lay_khu_vuc_mac_dinh(db))
+                db.add(khach)
+                db.flush()
+        don = DonHang(total_amount=tong, customer_name=khach.name if khach else "Khách lẻ",
+                      customer_id=khach.id if khach else None, is_draft=1, status="approved",
+                      created_at=now_vn().strftime("%Y-%m-%d %H:%M"), created_ts=now_vn_ts())
+        db.add(don)
+        db.flush()
+        for item in data.cart:
+            db.add(ChiTietDon(order_id=don.id, product_name=item.product_name, variant_id=item.variant_id,
+                              variant_info=f"{item.color}-{item.size}", quantity=item.quantity, price=item.price))
+        db.commit()
+        return {"status": "success", "order_id": don.id, "message": "Đơn desktop đã gửi picker"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/orders/pending")
+def lay_don_cho_duyet(db: Session = Depends(get_db)):
+    try:
+        don_hang = db.query(DonHang).filter(DonHang.status == "pending").order_by(desc(DonHang.created_ts)).all()
+        ket_qua = []
+        for don in don_hang:
+            chi_tiet, tong_sl, co_thieu = [], 0, False
+            for ct in (don.chi_tiet or []):
+                tong_sl += ct.quantity
+                ton_kho, du_hang = None, True
+                if ct.variant_id:
+                    bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+                    ton_kho = int(bt.stock or 0) if bt else 0
+                    du_hang = ton_kho >= int(ct.quantity or 0)
+                    if not du_hang:
+                        co_thieu = True
+                chi_tiet.append({"order_item_id": ct.id, "product_name": ct.product_name, "variant_id": ct.variant_id, "variant_info": ct.variant_info, "quantity": ct.quantity, "price": ct.price, "current_stock": ton_kho, "enough_stock": du_hang})
+            created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
+            ket_qua.append({"id": don.id, "created_at": created_at_str, "customer_name": don.customer_name or "Khách lẻ", "customer_id": don.customer_id, "total_amount": don.total_amount, "total_qty": tong_sl, "status": don.status, "picker_note": (don.picker_note or ""), "created_by_employee_id": don.created_by_employee_id, "created_by_employee_name": (don.nguoi_tao.name if getattr(don, "nguoi_tao", None) else ""), "has_stock_conflict": co_thieu, "items": chi_tiet})
+        return {"data": ket_qua, "count": len(ket_qua)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/orders/{don_id}/approve")
+def duyet_don(don_id: int, db: Session = Depends(get_db)):
+    try:
+        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+        if not don:
+            raise HTTPException(status_code=404, detail="Hóa đơn không tồn tại")
+        if don.status != "pending":
+            raise HTTPException(status_code=400, detail="Chỉ có thể duyệt đơn chờ duyệt")
+        for ct in don.chi_tiet:
+            if ct.variant_id:
+                bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+                if not bt or int(bt.stock or 0) < int(ct.quantity or 0):
+                    raise HTTPException(status_code=400, detail=f"SP {ct.product_name} thiếu hàng")
+        for ct in don.chi_tiet:
+            if ct.variant_id:
+                bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+                bt.stock = int(bt.stock or 0) - int(ct.quantity or 0)
+        don.status, don.is_draft = "approved", 1
+        db.commit()
+        return {"status": "success", "message": f"Đơn #{don_id} đã được duyệt"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/orders/{don_id}/reject")
+def tu_choi_don(don_id: int, db: Session = Depends(get_db)):
+    try:
+        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+        if not don:
+            raise HTTPException(status_code=404, detail="Hóa đơn không tồn tại")
+        if don.status != "pending":
+            raise HTTPException(status_code=400, detail="Chỉ có thể từ chối đơn chờ duyệt")
+        db.query(ChiTietDon).filter(ChiTietDon.order_id == don_id).delete()
+        db.delete(don)
+        db.commit()
+        return {"status": "success", "message": f"Đơn #{don_id} đã bị từ chối"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/orders/{don_id}/cancel")
+def huy_don(don_id: int, db: Session = Depends(get_db)):
+    try:
+        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+        if not don:
+            raise HTTPException(status_code=404)
+        if don.status not in ("pending", "approved", "assigned"):
+            raise HTTPException(status_code=400, detail="Chỉ hủy đơn đang chờ/đã duyệt/đã nhận")
+        db.query(ChiTietDon).filter(ChiTietDon.order_id == don_id).delete()
+        db.delete(don)
+        db.commit()
+        return {"status": "success", "message": f"Đơn #{don_id} đã bị hủy"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/orders/approved")
+def lay_don_da_duyet(db: Session = Depends(get_db)):
+    try:
+        don_hang = db.query(DonHang).filter(DonHang.status == "approved").order_by(desc(DonHang.created_ts)).all()
+        return {"data": [_serialize_don(don) for don in don_hang], "count": len(don_hang)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/orders/{don_id}/receive")
+def nhan_don(don_id: int, data: YeuCauNhanDon, db: Session = Depends(get_db)):
+    try:
+        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+        if not don:
+            raise HTTPException(status_code=404)
+        if don.status != "approved":
+            raise HTTPException(status_code=400, detail="Chỉ nhận đơn đã duyệt")
+        picker = db.query(NhanVien).filter(NhanVien.id == data.picker_id).first()
+        if not picker or picker.role not in ("picker", "manager"):
+            raise HTTPException(status_code=400, detail="Picker không hợp lệ")
+        don.status, don.assigned_picker_id, don.assigned_at = "assigned", picker.id, now_vn().strftime("%Y-%m-%d %H:%M")
+        db.commit()
+        return {"status": "success", "message": f"Đã nhận đơn #{don_id}"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/orders/assigned")
+def lay_don_da_nhan(picker_id: int, db: Session = Depends(get_db)):
+    try:
+        don_hang = db.query(DonHang).filter(DonHang.status == "assigned", DonHang.assigned_picker_id == picker_id).order_by(desc(DonHang.created_ts)).all()
+        return {"data": [_serialize_don(don) for don in don_hang], "count": len(don_hang)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/orders/{don_id}/deliver-with-photo")
+async def giao_hang_upload_anh(
+    don_id: int,
+    picker_id: int = Form(...),
+    items_json: str = Form("[]"),
+    picker_note: str = Form(""),
+    photo: Optional[UploadFile] = File(None),
+    photos: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        raw_items = json.loads(items_json or "[]")
+        if not isinstance(raw_items, list):
+            raw_items = []
+    except Exception:
+        raise HTTPException(status_code=400, detail="Dữ liệu items không hợp lệ")
+
+    items = [XacNhanGiaoItem(order_item_id=x.get("order_item_id"), variant_id=x.get("variant_id"), picked_qty=int(x.get("picked_qty") or 0)) for x in raw_items if isinstance(x, dict)]
+    upload_files = [p for p in (photos or []) if p is not None] or ([photo] if photo else [])
+    if not upload_files:
+        raise HTTPException(status_code=400, detail="Thiếu ảnh xác nhận giao hàng")
+    photo_paths = [_luu_anh_giao_hang(don_id, f) for f in upload_files]
+    return _giao_hang_noi_bo(don_id, picker_id, photo_paths, items, db, picker_note)
+
+
+def _xac_nhan_giao_logic(don: DonHang, items: Optional[List[XacNhanGiaoItem]], db: Session, ghi_chu: str = "") -> dict:
+    yeu_cau_map = {ct.id: ct for ct in don.chi_tiet}
+    da_giao_map = {}
+    if items:
+        for x in items:
+            ct_target = None
+            if x.order_item_id and x.order_item_id in yeu_cau_map:
+                ct_target = yeu_cau_map[x.order_item_id]
+            elif x.variant_id is not None:
+                ct_target = next((ct for ct in don.chi_tiet if ct.variant_id == x.variant_id), None)
+            if not ct_target:
+                continue
+            sl = max(0, min(int(x.picked_qty or 0), int(ct_target.quantity)))
+            da_giao_map[ct_target.id] = sl
+    for ct in don.chi_tiet:
+        if ct.id not in da_giao_map:
+            da_giao_map[ct.id] = int(ct.quantity or 0)
+
+    tong_giao, thieu_hang = 0, []
+    for ct in list(don.chi_tiet):
+        sl_yc = int(ct.quantity or 0)
+        sl_giao = int(da_giao_map.get(ct.id, 0))
+        if sl_giao < sl_yc:
+            thieu_hang.append(f"{ct.product_name} ({sl_giao}/{sl_yc})")
+            if ct.variant_id:
+                bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+                if bt:
+                    bt.stock = int(bt.stock or 0) + (sl_yc - sl_giao)
+        if sl_giao <= 0:
+            db.delete(ct)
+        else:
+            ct.quantity = sl_giao
+            tong_giao += int(ct.price or 0) * sl_giao
+
+    if don.customer_id and tong_giao > 0:
+        kh = db.query(KhachHang).filter(KhachHang.id == don.customer_id).first()
+        if kh:
+            kh.debt = int(kh.debt or 0) + tong_giao
+
+    don.total_amount = tong_giao
+    ghi_chu_thieu = ("Thiếu hàng: " + "; ".join(thieu_hang)) if thieu_hang else ""
+    ghi_chu_manual = (ghi_chu or "").strip()
+    if ghi_chu_thieu and ghi_chu_manual:
+        don.picker_note = f"{ghi_chu_thieu} | {ghi_chu_manual}"
+    elif ghi_chu_thieu:
+        don.picker_note = ghi_chu_thieu
+    else:
+        don.picker_note = ghi_chu_manual
+    don.status, don.is_draft = "completed", 0
+    db.commit()
+    return {"status": "success", "message": f"Đơn #{don.id} hoàn thành", "partial": len(thieu_hang) > 0, "picker_note": don.picker_note, "delivered_total": tong_giao}
+
+
+def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_paths: list, items: list, db: Session, ghi_chu: str = "") -> dict:
+    if not photo_paths:
+        raise HTTPException(status_code=400, detail="Bắt buộc chụp ảnh xác nhận giao hàng")
+    abs_paths, chuan_hoa_paths = [], []
+    for raw in photo_paths:
+        if raw.startswith("/delivery-proofs/"):
+            ten = os.path.basename(raw)
+            abs_p = os.path.join(_thu_muc_upload(), ten)
+            if not os.path.exists(abs_p):
+                raise HTTPException(status_code=400, detail="Ảnh xác nhận không tồn tại, vui lòng chụp lại")
+            chuan_hoa_paths.append(f"/delivery-proofs/{ten}")
+            abs_paths.append(abs_p)
+        elif raw.startswith("http://") or raw.startswith("https://"):
+            chuan_hoa_paths.append(raw)
+
+    picker = db.query(NhanVien).filter(NhanVien.id == picker_id).first()
+    if not picker or picker.role not in ("picker", "manager"):
+        raise HTTPException(status_code=400, detail="Picker không hợp lệ")
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404)
+    if don.status != "assigned":
+        raise HTTPException(status_code=400, detail="Chỉ giao đơn đã nhận")
+    if don.assigned_picker_id != picker.id:
+        raise HTTPException(status_code=403, detail="Bạn không phải người đã nhận đơn này")
+
+    ket_qua = _xac_nhan_giao_logic(don, items if items else None, db, ghi_chu)
+    don.delivered_by_id, don.delivered_at = picker.id, now_vn().strftime("%Y-%m-%d %H:%M")
+    don.delivery_photo_path = json.dumps(chuan_hoa_paths, ensure_ascii=False) if len(chuan_hoa_paths) > 1 else (chuan_hoa_paths[0] if chuan_hoa_paths else "")
+    db.commit()
+
+    if abs_paths:
+        chu_thich = f"Đơn #{don.id} • {don.customer_name or 'Khách lẻ'}\nPicker: {picker.name}\n{now_vn().strftime('%Y-%m-%d %H:%M')}"
+        if don.picker_note:
+            chu_thich += f"\nGhi chú: {don.picker_note}"
+        threading.Thread(target=_gui_anh_telegram_async, args=(don.id, abs_paths, chu_thich), daemon=True).start()
+
+    return ket_qua
+
+
+@router.put("/orders/{don_id}/confirm")
+def xac_nhan_don(don_id: int, data: Optional[YeuCauXacNhanGiao] = None, db: Session = Depends(get_db)):
+    try:
+        don = db.query(DonHang).filter(DonHang.id == don_id).first()
+        if not don:
+            raise HTTPException(status_code=404)
+        if don.status not in ("assigned",):
+            raise HTTPException(status_code=400, detail="Chỉ xác nhận đơn đã được nhận")
+        return _xac_nhan_giao_logic(don, data.items if data else None, db)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/orders/management")
+def lay_don_quan_ly(limit: int = 200, db: Session = Depends(get_db)):
+    try:
+        don_hang = db.query(DonHang).order_by(desc(DonHang.created_ts)).limit(limit).all()
+        return {"data": [_serialize_don(don) for don in don_hang], "count": len(don_hang)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/orders/{don_id}/status")
+def kiem_tra_trang_thai(don_id: int, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại hoặc đã bị từ chối")
+    return {"id": don_id, "status": don.status, "picker_note": (don.picker_note or "")}
+
+
+# ─── Ảnh giao hàng ─────────────────────────────────────────────────────────────
+
+anh_router = APIRouter(tags=["Ảnh giao hàng"])
+
+
+@anh_router.post("/delivery-proofs/ack-local")
+def xac_nhan_anh_local(data: XacNhanLocalAnh, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == data.order_id).first()
+    if not don:
+        raise HTTPException(status_code=404)
+    current_paths = parse_duong_dan_anh(don.delivery_photo_path)
+    ten_files = [os.path.basename(str(x).strip()) for x in (data.local_file_names or []) if str(x).strip()] or [os.path.basename(p) for p in current_paths if str(p).strip()]
+    local_paths = [f"local://delivery_proofs/{ten}" for ten in ten_files if ten]
+    if local_paths:
+        don.delivery_photo_path = json.dumps(local_paths, ensure_ascii=False) if len(local_paths) > 1 else local_paths[0]
+    da_xoa = 0
+    for p in current_paths:
+        raw = str(p).strip()
+        if not raw or raw.startswith("local://") or raw.startswith("http"):
+            continue
+        abs_p = os.path.join(_thu_muc_upload(), os.path.basename(raw))
+        if os.path.exists(abs_p):
+            try:
+                os.remove(abs_p)
+                da_xoa += 1
+            except Exception:
+                pass
+    db.commit()
+    return {"status": "ok", "order_id": don.id, "removed_remote_files": da_xoa, "local_paths": local_paths}
+
+
+@anh_router.get("/delivery-proofs/{ten_file}")
+def lay_file_anh(ten_file: str):
+    ten_an_toan = os.path.basename(ten_file)
+    if ten_an_toan != ten_file:
+        raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
+    abs_p = os.path.join(_thu_muc_upload(), ten_an_toan)
+    if not os.path.exists(abs_p):
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
+    return FileResponse(abs_p)
