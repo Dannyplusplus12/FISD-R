@@ -1,0 +1,62 @@
+name: Build iOS Unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/flutter_ios.yml'
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          flutter pub get
+
+      - name: Verify iOS platform exists
+        run: |
+          if [ ! -d "frontend/ios" ]; then
+            echo "Missing frontend/ios — run: flutter create . --platforms ios"
+            exit 1
+          fi
+
+      - name: Build iOS (no code signing)
+        run: |
+          cd frontend
+          flutter build ios --release --no-codesign
+
+      - name: Package as unsigned IPA
+        run: |
+          APP_PATH="frontend/build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Runner.app not found — build may have failed"
+            exit 1
+          fi
+          mkdir -p frontend/build/ios/ipa/Payload
+          cp -R "$APP_PATH" frontend/build/ios/ipa/Payload/
+          cd frontend/build/ios/ipa
+          zip -r ../FISD-ios-unsigned.ipa Payload
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fisd-ios-unsigned-${{ github.sha }}
+          path: frontend/build/ios/FISD-ios-unsigned.ipa
+          retention-days: 30
+          if-no-files-found: error
