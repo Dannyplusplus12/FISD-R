@@ -148,7 +148,7 @@ def health():
     return {"status": "healthy"}
 
 
-@app.get("/stats")
+@app.get("/thong-ke")
 def stats():
     from app.models import SanPham, KhachHang, DonHang, NhanVien
     db = SessionLocal()

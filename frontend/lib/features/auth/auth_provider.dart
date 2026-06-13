@@ -31,14 +31,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final dio = _ref.read(apiClientProvider);
       final response = await dio.post(
-        ApiEndpoints.pinLogin,
+        ApiEndpoints.dangNhapPin,
         data: {'pin': pin},
       );
       final data = response.data as Map<String, dynamic>;
       await _ref.read(sessionProvider.notifier).login(
             employeeId: data['id'] as int,
             employeeName: (data['name'] ?? '').toString(),
-            roleStr: (data['role'] ?? role).toString(),
+            roleStr: (data['role'] ?? 'orderer').toString(),
           );
       state = const AsyncValue.data(null);
       return true;

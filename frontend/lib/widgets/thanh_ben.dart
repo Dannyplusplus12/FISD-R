@@ -1,35 +1,23 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
-import '../models/nav_item.dart';
+import '../models/muc_dieu_huong.dart';
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-//
-// The collapsible left navigation panel.
-//
-// Parameters:
-//   navItems      — the list of pages to show in the menu
-//   selectedIndex — which item is currently active (highlighted)
-//   onItemSelected — called when the user taps a nav item
-//   onClose       — called when the user taps the hamburger to collapse
-//   onLogout      — called when the user taps "Đăng xuất"
-//   employeeName  — shown at the bottom above the logout button
+class ThanhBen extends StatelessWidget {
+  final List<MucDieuHuong> mucMenu;
+  final int chiSoChon;
+  final ValueChanged<int> onChon;
+  final VoidCallback onDong;
+  final VoidCallback? onDangXuat;
+  final String tenNhanVien;
 
-class Sidebar extends StatelessWidget {
-  final List<NavItem> navItems;
-  final int selectedIndex;
-  final ValueChanged<int> onItemSelected;
-  final VoidCallback onClose;
-  final VoidCallback? onLogout;
-  final String employeeName;
-
-  const Sidebar({
+  const ThanhBen({
     super.key,
-    required this.navItems,
-    required this.selectedIndex,
-    required this.onItemSelected,
-    required this.onClose,
-    this.onLogout,
-    this.employeeName = '',
+    required this.mucMenu,
+    required this.chiSoChon,
+    required this.onChon,
+    required this.onDong,
+    this.onDangXuat,
+    this.tenNhanVien = '',
   });
 
   @override
@@ -45,7 +33,6 @@ class Sidebar extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            // ── Logo ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Container(
@@ -63,38 +50,29 @@ class Sidebar extends StatelessWidget {
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Text(
                       'FISD',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        color: AppColors.textPrimary,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.textPrimary),
                     ),
                   ),
                 ),
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // ── Nav items ─────────────────────────────────────────
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: navItems.length,
-                itemBuilder: (context, index) => _NavTile(
-                  item: navItems[index],
-                  isSelected: index == selectedIndex,
-                  onTap: () => onItemSelected(index),
+                itemCount: mucMenu.length,
+                itemBuilder: (context, index) => _OBanMenu(
+                  muc: mucMenu[index],
+                  daChon: index == chiSoChon,
+                  onNhan: () => onChon(index),
                 ),
               ),
             ),
-
-            // ── Footer: user info + logout ─────────────────────────
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  if (employeeName.isNotEmpty) ...[
+                  if (tenNhanVien.isNotEmpty) ...[
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -107,7 +85,7 @@ class Sidebar extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            employeeName,
+                            tenNhanVien,
                             style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -116,10 +94,9 @@ class Sidebar extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  // Logout button
-                  if (onLogout != null)
+                  if (onDangXuat != null)
                     InkWell(
-                      onTap: onLogout,
+                      onTap: onDangXuat,
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -133,8 +110,7 @@ class Sidebar extends StatelessWidget {
                             children: [
                               Icon(Icons.logout, size: 16, color: Colors.red),
                               SizedBox(width: 6),
-                              Text('Đăng xuất',
-                                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                              Text('Đăng xuất', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -142,7 +118,7 @@ class Sidebar extends StatelessWidget {
                     )
                   else
                     InkWell(
-                      onTap: onClose,
+                      onTap: onDong,
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -163,40 +139,35 @@ class Sidebar extends StatelessWidget {
   }
 }
 
-// ── Internal nav tile ─────────────────────────────────────────────────────────
-class _NavTile extends StatelessWidget {
-  final NavItem item;
-  final bool isSelected;
-  final VoidCallback onTap;
+class _OBanMenu extends StatelessWidget {
+  final MucDieuHuong muc;
+  final bool daChon;
+  final VoidCallback onNhan;
 
-  const _NavTile({required this.item, required this.isSelected, required this.onTap});
+  const _OBanMenu({required this.muc, required this.daChon, required this.onNhan});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: onTap,
+        onTap: onNhan,
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.navSelected : AppColors.navUnselected,
+            color: daChon ? AppColors.navSelected : AppColors.navUnselected,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(children: [
-            Icon(
-              item.icon,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-              size: 20,
-            ),
+            Icon(muc.bieu_tuong, color: daChon ? Colors.white : AppColors.textSecondary, size: 20),
             const SizedBox(width: 12),
             Text(
-              item.label,
+              muc.nhan,
               style: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: daChon ? Colors.white : AppColors.textPrimary,
+                fontWeight: daChon ? FontWeight.w600 : FontWeight.w400,
                 fontSize: 14,
               ),
             ),

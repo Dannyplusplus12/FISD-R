@@ -53,7 +53,7 @@ def _luu_anh_giao_hang(don_id: int, file: UploadFile) -> str:
                     pass
                 raise HTTPException(status_code=400, detail=f"Ảnh vượt giới hạn {settings.MAX_DELIVERY_PHOTO_MB}MB")
             f.write(chunk)
-    return f"/delivery-proofs/{ten_an_toan}"
+    return f"/bang-chung-giao/{ten_an_toan}"
 
 
 def _lay_khu_vuc_mac_dinh(db: Session):
@@ -164,7 +164,7 @@ def _xoa_don_voi_logic(don: DonHang, db: Session):
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
 
-@router.get("/orders")
+@router.get("/don-hang")
 def lay_don_hang(page: int = 1, limit: int = 20, db: Session = Depends(get_db)):
     try:
         skip = (page - 1) * limit
@@ -184,7 +184,7 @@ def lay_don_hang(page: int = 1, limit: int = 20, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Lỗi tải hóa đơn: {e}")
 
 
-@router.delete("/orders/{don_id}")
+@router.delete("/don-hang/{don_id}")
 def xoa_don(don_id: int, db: Session = Depends(get_db)):
     don = db.query(DonHang).filter(DonHang.id == don_id).first()
     if not don:
@@ -200,7 +200,7 @@ def xoa_don(don_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/orders/{don_id}/date")
+@router.put("/don-hang/{don_id}/ngay")
 def cap_nhat_ngay_don(don_id: int, data: CapNhatNgayDon, db: Session = Depends(get_db)):
     don = db.query(DonHang).filter(DonHang.id == don_id).first()
     if not don:
@@ -215,7 +215,7 @@ def cap_nhat_ngay_don(don_id: int, data: CapNhatNgayDon, db: Session = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/checkout")
+@router.post("/thanh-toan")
 def thanh_toan_truc_tiep(data: YeuCauThanhToan, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import func as sqla_func
@@ -252,7 +252,7 @@ def thanh_toan_truc_tiep(data: YeuCauThanhToan, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/checkout/draft")
+@router.post("/thanh-toan/nhap")
 def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import func as sqla_func
@@ -283,7 +283,7 @@ def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/checkout/desktop-dispatch")
+@router.post("/thanh-toan/desktop")
 def thanh_toan_desktop(data: YeuCauThanhToan, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import func as sqla_func
@@ -319,7 +319,7 @@ def thanh_toan_desktop(data: YeuCauThanhToan, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/orders/pending")
+@router.get("/don-hang/cho-duyet")
 def lay_don_cho_duyet(db: Session = Depends(get_db)):
     try:
         don_hang = db.query(DonHang).filter(DonHang.status == "pending").order_by(desc(DonHang.created_ts)).all()
@@ -343,7 +343,7 @@ def lay_don_cho_duyet(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/orders/{don_id}/approve")
+@router.put("/don-hang/{don_id}/duyet")
 def duyet_don(don_id: int, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -371,7 +371,7 @@ def duyet_don(don_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/orders/{don_id}/reject")
+@router.delete("/don-hang/{don_id}/tu-choi")
 def tu_choi_don(don_id: int, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -388,7 +388,7 @@ def tu_choi_don(don_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/orders/{don_id}/cancel")
+@router.delete("/don-hang/{don_id}/huy")
 def huy_don(don_id: int, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -408,7 +408,7 @@ def huy_don(don_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/orders/approved")
+@router.get("/don-hang/da-duyet")
 def lay_don_da_duyet(db: Session = Depends(get_db)):
     try:
         don_hang = db.query(DonHang).filter(DonHang.status == "approved").order_by(desc(DonHang.created_ts)).all()
@@ -417,7 +417,7 @@ def lay_don_da_duyet(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/orders/{don_id}/receive")
+@router.put("/don-hang/{don_id}/nhan")
 def nhan_don(don_id: int, data: YeuCauNhanDon, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -439,7 +439,7 @@ def nhan_don(don_id: int, data: YeuCauNhanDon, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/orders/assigned")
+@router.get("/don-hang/da-nhan")
 def lay_don_da_nhan(picker_id: int, db: Session = Depends(get_db)):
     try:
         don_hang = db.query(DonHang).filter(DonHang.status == "assigned", DonHang.assigned_picker_id == picker_id).order_by(desc(DonHang.created_ts)).all()
@@ -448,7 +448,7 @@ def lay_don_da_nhan(picker_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/orders/{don_id}/deliver-with-photo")
+@router.put("/don-hang/{don_id}/giao-kem-anh")
 async def giao_hang_upload_anh(
     don_id: int,
     picker_id: int = Form(...),
@@ -531,12 +531,12 @@ def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_paths: list, items: lis
         raise HTTPException(status_code=400, detail="Bắt buộc chụp ảnh xác nhận giao hàng")
     abs_paths, chuan_hoa_paths = [], []
     for raw in photo_paths:
-        if raw.startswith("/delivery-proofs/"):
+        if raw.startswith("/bang-chung-giao/"):
             ten = os.path.basename(raw)
             abs_p = os.path.join(_thu_muc_upload(), ten)
             if not os.path.exists(abs_p):
                 raise HTTPException(status_code=400, detail="Ảnh xác nhận không tồn tại, vui lòng chụp lại")
-            chuan_hoa_paths.append(f"/delivery-proofs/{ten}")
+            chuan_hoa_paths.append(f"/bang-chung-giao/{ten}")
             abs_paths.append(abs_p)
         elif raw.startswith("http://") or raw.startswith("https://"):
             chuan_hoa_paths.append(raw)
@@ -566,7 +566,7 @@ def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_paths: list, items: lis
     return ket_qua
 
 
-@router.put("/orders/{don_id}/confirm")
+@router.put("/don-hang/{don_id}/xac-nhan")
 def xac_nhan_don(don_id: int, data: Optional[YeuCauXacNhanGiao] = None, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -583,7 +583,7 @@ def xac_nhan_don(don_id: int, data: Optional[YeuCauXacNhanGiao] = None, db: Sess
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/orders/management")
+@router.get("/don-hang/quan-ly")
 def lay_don_quan_ly(limit: int = 200, db: Session = Depends(get_db)):
     try:
         don_hang = db.query(DonHang).order_by(desc(DonHang.created_ts)).limit(limit).all()
@@ -592,7 +592,7 @@ def lay_don_quan_ly(limit: int = 200, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/orders/{don_id}/status")
+@router.get("/don-hang/{don_id}/trang-thai")
 def kiem_tra_trang_thai(don_id: int, db: Session = Depends(get_db)):
     don = db.query(DonHang).filter(DonHang.id == don_id).first()
     if not don:
@@ -605,7 +605,7 @@ def kiem_tra_trang_thai(don_id: int, db: Session = Depends(get_db)):
 anh_router = APIRouter(tags=["Ảnh giao hàng"])
 
 
-@anh_router.post("/delivery-proofs/ack-local")
+@anh_router.post("/bang-chung-giao/xac-nhan-local")
 def xac_nhan_anh_local(data: XacNhanLocalAnh, db: Session = Depends(get_db)):
     don = db.query(DonHang).filter(DonHang.id == data.order_id).first()
     if not don:
@@ -631,7 +631,7 @@ def xac_nhan_anh_local(data: XacNhanLocalAnh, db: Session = Depends(get_db)):
     return {"status": "ok", "order_id": don.id, "removed_remote_files": da_xoa, "local_paths": local_paths}
 
 
-@anh_router.get("/delivery-proofs/{ten_file}")
+@anh_router.get("/bang-chung-giao/{ten_file}")
 def lay_file_anh(ten_file: str):
     ten_an_toan = os.path.basename(ten_file)
     if ten_an_toan != ten_file:

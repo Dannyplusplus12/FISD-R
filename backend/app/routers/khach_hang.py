@@ -16,7 +16,7 @@ def _lay_khu_vuc_mac_dinh(db: Session):
 
 # ─── Khu vực ───────────────────────────────────────────────────────────────────
 
-khu_vuc_router = APIRouter(prefix="/areas", tags=["Khu vực"])
+khu_vuc_router = APIRouter(prefix="/khu-vuc", tags=["Khu vực"])
 
 
 @khu_vuc_router.get("")
@@ -78,7 +78,7 @@ def xoa_khu_vuc(kv_id: int, db: Session = Depends(get_db)):
 
 # ─── Khách hàng ────────────────────────────────────────────────────────────────
 
-khach_hang_router = APIRouter(prefix="/customers", tags=["Khách hàng"])
+khach_hang_router = APIRouter(prefix="/khach-hang", tags=["Khách hàng"])
 
 
 @khach_hang_router.get("")
@@ -163,7 +163,7 @@ def _xoa_don_voi_logic(don: DonHang, db: Session):
     db.delete(don)
 
 
-@khach_hang_router.get("/{kh_id}/history")
+@khach_hang_router.get("/{kh_id}/lich-su-no")
 def lich_su_khach_hang(kh_id: int, db: Session = Depends(get_db)):
     lich_su = []
     for don in db.query(DonHang).filter(DonHang.customer_id == kh_id).all():
@@ -184,7 +184,7 @@ def lich_su_khach_hang(kh_id: int, db: Session = Depends(get_db)):
     return sorted(lich_su, key=lambda x: x["sort_ts"], reverse=True)
 
 
-@khach_hang_router.post("/{kh_id}/history")
+@khach_hang_router.post("/{kh_id}/lich-su-no")
 def tao_lich_su_no(kh_id: int, data: TaoLichSuNo, db: Session = Depends(get_db)):
     kh = db.query(KhachHang).filter(KhachHang.id == kh_id).first()
     if not kh:
@@ -211,7 +211,7 @@ def tao_lich_su_no(kh_id: int, data: TaoLichSuNo, db: Session = Depends(get_db))
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@khach_hang_router.put("/{kh_id}/history/{log_id}")
+@khach_hang_router.put("/{kh_id}/lich-su-no/{log_id}")
 def cap_nhat_lich_su_no(kh_id: int, log_id: int, data: CapNhatLichSuNo, db: Session = Depends(get_db)):
     kh = db.query(KhachHang).filter(KhachHang.id == kh_id).first()
     if not kh:
@@ -238,7 +238,7 @@ def cap_nhat_lich_su_no(kh_id: int, log_id: int, data: CapNhatLichSuNo, db: Sess
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@khach_hang_router.delete("/{kh_id}/history/{log_id}")
+@khach_hang_router.delete("/{kh_id}/lich-su-no/{log_id}")
 def xoa_lich_su_no(kh_id: int, log_id: int, db: Session = Depends(get_db)):
     kh = db.query(KhachHang).filter(KhachHang.id == kh_id).first()
     if not kh:

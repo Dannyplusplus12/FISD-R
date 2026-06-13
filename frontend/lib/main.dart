@@ -3,17 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
 import 'core/session/session.dart';
-import 'widgets/app_shell.dart' show AppShell, AuthGate;
+import 'widgets/khung_app.dart' show CongXacThuc;
 
-// ── Entry Point ───────────────────────────────────────────────────────────────
-//
-// App startup:
-//   1. ProviderScope    — wraps the whole app so Riverpod providers work
-//   2. SessionNotifier.init() — restores the saved login session from disk
-//   3. RootWidget       — shows LoginPage or AppShell depending on session state
-//
-// Riverpod's ProviderScope must be the outermost widget.  Think of it as a
-// "storage box" that all providers live inside.
 
 void main() {
   runApp(
@@ -72,10 +63,7 @@ class _FisdAppState extends ConsumerState<FisdApp> {
       ],
       locale: const Locale('vi', 'VN'),
 
-      // RootWidget handles the auth gate:
-      //   not logged in → LoginPage
-      //   logged in      → AppShell (sidebar + content)
-      home: const AuthGate(),
+      home: const CongXacThuc(),
     );
   }
 }

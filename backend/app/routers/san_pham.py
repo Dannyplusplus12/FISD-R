@@ -11,7 +11,7 @@ from app.schemas.san_pham import TaoSanPham, CapNhatSanPham
 from app.utils import now_vn
 from app.core.config import settings
 
-router = APIRouter(prefix="/products", tags=["Sản phẩm"])
+router = APIRouter(prefix="/san-pham", tags=["Sản phẩm"])
 
 _EXTENSIONS_HOP_LE = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".bmp"}
 _MAX_ANH_BYTES = settings.MAX_DELIVERY_PHOTO_MB * 1024 * 1024
@@ -36,7 +36,7 @@ def _luu_anh_san_pham(file: UploadFile) -> str:
             if not chunk:
                 break
             f.write(chunk)
-    return f"/product-images/{ten_an_toan}"
+    return f"/anh-san-pham/{ten_an_toan}"
 
 
 @router.get("")
@@ -111,12 +111,12 @@ def xoa_san_pham(sp_id: int, db: Session = Depends(get_db)):
 anh_router = APIRouter(tags=["Sản phẩm"])
 
 
-@anh_router.post("/product-images/upload")
+@anh_router.post("/anh-san-pham/upload")
 def upload_anh(file: UploadFile = File(...)):
     return {"path": _luu_anh_san_pham(file)}
 
 
-@anh_router.get("/product-images/{ten_file}")
+@anh_router.get("/anh-san-pham/{ten_file}")
 def lay_anh(ten_file: str):
     ten_an_toan = os.path.basename(ten_file)
     if ten_an_toan != ten_file:

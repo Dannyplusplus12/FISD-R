@@ -1,60 +1,56 @@
-// ── API Endpoint Paths ────────────────────────────────────────────────────────
-//
-// All URL paths live here.  When the backend renames an endpoint,
-// update only this file — every repository picks up the change automatically.
-//
-// Usage:
-//   dio.get(ApiEndpoints.products)
-//   dio.get(ApiEndpoints.product(42))
-//   dio.put(ApiEndpoints.approveOrder(7))
-
 class ApiEndpoints {
-  ApiEndpoints._(); // not instantiable
+  ApiEndpoints._();
 
-  // Products
-  static const String products = '/products';
-  static String product(int id) => '/products/$id';
-  static const String productImageUpload = '/product-images/upload';
-  static String productImage(String filename) => '/product-images/$filename';
+  // Sản phẩm
+  static const String sanPhams = '/san-pham';
+  static String sanPham(int id) => '/san-pham/$id';
+  static const String uploadAnhSanPham = '/anh-san-pham/upload';
+  static String anhSanPham(String tenFile) => '/anh-san-pham/$tenFile';
 
-  // Areas
-  static const String areas = '/areas';
-  static String area(int id) => '/areas/$id';
+  // Khu vực
+  static const String khuVucs = '/khu-vuc';
+  static String khuVuc(int id) => '/khu-vuc/$id';
 
-  // Customers
-  static const String customers = '/customers';
-  static String customer(int id) => '/customers/$id';
-  static String customerHistory(int id) => '/customers/$id/history';
-  static String customerHistoryItem(int cid, int logId) => '/customers/$cid/history/$logId';
+  // Khách hàng
+  static const String khachHangs = '/khach-hang';
+  static String khachHang(int id) => '/khach-hang/$id';
+  static String lichSuNo(int id) => '/khach-hang/$id/lich-su-no';
+  static String lichSuNoItem(int khId, int logId) => '/khach-hang/$khId/lich-su-no/$logId';
 
-  // Orders
-  static const String orders = '/orders';
-  static String order(int id) => '/orders/$id';
-  static String orderDate(int id) => '/orders/$id/date';
-  static String orderStatus(int id) => '/orders/$id/status';
+  // Nhân viên
+  static const String nhanViens = '/nhan-vien';
+  static String nhanVien(int id) => '/nhan-vien/$id';
+  static String giaoDongNhanVien(int id) => '/nhan-vien/$id/giao-hang';
+  static String hoatDongNhanVien(int id) => '/nhan-vien/$id/hoat-dong';
 
-  static const String checkout = '/checkout';
-  static const String checkoutDraft = '/checkout/draft';
-  static const String checkoutDesktopDispatch = '/checkout/desktop-dispatch';
+  // Xác thực
+  static const String dangNhapPin = '/xac-thuc/dang-nhap-pin';
 
-  static const String pendingOrders = '/orders/pending';
-  static const String approvedOrders = '/orders/approved';
-  static const String managementOrders = '/orders/management';
+  // Đơn hàng
+  static const String donHangs = '/don-hang';
+  static String donHang(int id) => '/don-hang/$id';
+  static String ngayDonHang(int id) => '/don-hang/$id/ngay';
+  static String trangThaiDonHang(int id) => '/don-hang/$id/trang-thai';
 
-  static String approveOrder(int id) => '/orders/$id/approve';
-  static String rejectOrder(int id) => '/orders/$id/reject';
-  static String cancelOrder(int id) => '/orders/$id/cancel';
-  static String receiveOrder(int id) => '/orders/$id/receive';
-  static String deliverOrder(int id) => '/orders/$id/deliver-with-photo';
-  static String confirmOrder(int id) => '/orders/$id/confirm';
-  static String assignedOrders(int pickerId) => '/orders/assigned?picker_id=$pickerId';
+  static const String donHangChoDuyet = '/don-hang/cho-duyet';
+  static const String donHangDaDuyet = '/don-hang/da-duyet';
+  static const String donHangQuanLy = '/don-hang/quan-ly';
+  static String donHangDaNhan(int pickerId) => '/don-hang/da-nhan?picker_id=$pickerId';
 
-  // Employees
-  static const String employees = '/employees';
-  static String employee(int id) => '/employees/$id';
-  static String employeeDeliveries(int id) => '/employees/$id/deliveries';
-  static String employeeActivities(int id) => '/employees/$id/activities';
+  static String duyetDon(int id) => '/don-hang/$id/duyet';
+  static String tuChoiDon(int id) => '/don-hang/$id/tu-choi';
+  static String huyDon(int id) => '/don-hang/$id/huy';
+  static String nhanDon(int id) => '/don-hang/$id/nhan';
+  static String giaoKemAnh(int id) => '/don-hang/$id/giao-kem-anh';
+  static String xacNhanDon(int id) => '/don-hang/$id/xac-nhan';
 
-  // Auth
-  static const String pinLogin = '/auth/pin-login';
+  static const String thanhToan = '/thanh-toan';
+  static const String thanhToanNhap = '/thanh-toan/nhap';
+  static const String thanhToanDesktop = '/thanh-toan/desktop';
+
+  // Ảnh bằng chứng giao hàng
+  static String bangChungGiao(String tenFile) => '/bang-chung-giao/$tenFile';
+
+  // Dashboard
+  static const String thongKe = '/thong-ke';
 }

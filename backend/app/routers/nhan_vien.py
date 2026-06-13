@@ -8,8 +8,8 @@ from app.models import NhanVien, DonHang, LichSuNo, KhachHang
 from app.schemas.nhan_vien import TaoNhanVien, CapNhatNhanVien, DangNhapPin
 from app.utils import now_vn, period_start_vn, parse_duong_dan_anh, trang_thai_don_vi
 
-router = APIRouter(prefix="/employees", tags=["Nhân viên"])
-auth_router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/nhan-vien", tags=["Nhân viên"])
+auth_router = APIRouter(prefix="/xac-thuc", tags=["Xác thực"])
 
 VAI_TRO_HOP_LE = {"orderer", "picker", "manager"}
 
@@ -92,7 +92,7 @@ def _chuan_hoa_pin(pin_raw: str) -> str:
     return pin
 
 
-@auth_router.post("/pin-login")
+@auth_router.post("/dang-nhap-pin")
 def dang_nhap_pin(data: DangNhapPin, db: Session = Depends(get_db)):
     nv = db.query(NhanVien).filter(NhanVien.pin == data.pin.strip()).first()
     if not nv:
@@ -164,7 +164,7 @@ def xoa_nhan_vien(nv_id: int, db: Session = Depends(get_db)):
     return {"status": "deleted"}
 
 
-@router.get("/{nv_id}/deliveries")
+@router.get("/{nv_id}/giao-hang")
 def lich_su_giao_hang(nv_id: int, q: str = "", days: int = 0, limit: int = 200, db: Session = Depends(get_db)):
     nv = db.query(NhanVien).filter(NhanVien.id == nv_id).first()
     if not nv:
@@ -184,7 +184,7 @@ def lich_su_giao_hang(nv_id: int, q: str = "", days: int = 0, limit: int = 200, 
     return {"employee": _serialize_nhan_vien(nv), "data": [_serialize_don_hang(d) for d in don_hang], "count": len(don_hang)}
 
 
-@router.get("/{nv_id}/activities")
+@router.get("/{nv_id}/hoat-dong")
 def lich_su_hoat_dong(nv_id: int, q: str = "", days: int = 0, limit: int = 300, db: Session = Depends(get_db)):
     nv = db.query(NhanVien).filter(NhanVien.id == nv_id).first()
     if not nv:
