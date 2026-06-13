@@ -29,9 +29,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     {'value': 'manager', 'label': 'Quản lý'},
   ];
 
-  // Add a digit to the PIN (max 8 digits)
   void _onDigit(String digit) {
-    if (_pin.length < 8) setState(() => _pin += digit);
+    if (_pin.length < 4) {
+      final next = _pin + digit;
+      setState(() => _pin = next);
+      if (next.length == 4) _onLogin();
+    }
   }
 
   // Remove the last digit
@@ -172,13 +175,13 @@ class _PinDots extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(8, (i) {
+      children: List.generate(4, (i) {
         final filled = i < pin.length;
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Container(
-            width: filled ? 16 : 12,
-            height: filled ? 16 : 12,
+            width: 18,
+            height: 18,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: filled ? AppColors.navSelected : AppColors.navUnselected,
