@@ -129,12 +129,23 @@ pending → approved → assigned → completed
 - Flutter/Dart, Riverpod (state management), Dio (HTTP), SharedPreferences (session)
 
 ### Cấu Trúc Feature
-Mỗi feature có 3 file:
+Mỗi feature có 3 file theo pattern **Repository → Provider → Page**:
 ```
 features/<ten>/
   <ten>_repository.dart   ← gọi API (dùng ApiEndpoints.xxx)
   <ten>_provider.dart     ← AsyncNotifier, state management
   <ten>_page.dart         ← UI
+```
+
+**Vai trò từng tầng:**
+- **Repository** — chỉ biết về mạng: gọi API, parse JSON, trả về model hoặc ném exception. Không biết về UI.
+- **Provider** — cầu nối duy nhất giữa repository và UI: giữ state, gọi repository, expose data qua Riverpod `AsyncNotifier`.
+- **Page** — chỉ `ref.watch()` / `ref.read()` provider. Không gọi API trực tiếp.
+
+**Luồng dữ liệu:**
+```
+Page → (action) → Provider → Repository → API
+Page ← (watch)  ← Provider ← Repository ← API
 ```
 
 ### Providers Quan Trọng
