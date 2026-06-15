@@ -6,7 +6,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import SanPham, BienThe
+from app.models import SanPham, BienThe, ChiTietDon
 from app.schemas.san_pham import TaoSanPham, CapNhatSanPham
 from app.utils import now_vn
 from app.core.config import settings
@@ -100,10 +100,18 @@ def cap_nhat_san_pham(sp_id: int, data: CapNhatSanPham, db: Session = Depends(ge
 @router.delete("/{sp_id}")
 def xoa_san_pham(sp_id: int, db: Session = Depends(get_db)):
     sp = db.query(SanPham).filter(SanPham.id == sp_id).first()
-    if sp:
-        db.query(BienThe).filter(BienThe.product_id == sp_id).delete()
-        db.delete(sp)
-        db.commit()
+    if not sp:
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
+
+    bien_thes = db.query(BienThe).filter(BienThe.product_id == sp_id).all()
+    variant_ids = [bt.id for bt in bien_thes if bt.id is not None]
+
+    if variant_ids:
+        db.query(ChiTietDon).filter(ChiTietDon.variant_id.in_(variant_ids)).delete(synchronize_session=False)
+
+    db.query(BienThe).filter(BienThe.product_id == sp_id).delete(synchronize_session=False)
+    db.delete(sp)
+    db.commit()
     return {"status": "deleted"}
 
 
