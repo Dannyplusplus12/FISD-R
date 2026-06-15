@@ -33,37 +33,14 @@ def _them_cot_neu_thieu():
 
 
 def _them_cot_sqlite(db):
-    _add_col_safe(db, "ALTER TABLE employees ADD COLUMN email TEXT DEFAULT ''", "employees", "email")
-    _add_col_safe(db, "ALTER TABLE employees ADD COLUMN address TEXT DEFAULT ''", "employees", "address")
-    _add_col_safe(db, "ALTER TABLE employees ADD COLUMN notes TEXT DEFAULT ''", "employees", "notes")
-    _add_col_safe(db, "ALTER TABLE employees ADD COLUMN is_active INTEGER DEFAULT 1", "employees", "is_active")
-    _add_col_safe(db, "ALTER TABLE employees ADD COLUMN created_at TEXT DEFAULT ''", "employees", "created_at")
-    _add_col_safe(db, "ALTER TABLE orders ADD COLUMN created_ts INTEGER DEFAULT 0", "orders", "created_ts")
-    _add_col_safe(db, "ALTER TABLE orders ADD COLUMN assigned_at TEXT DEFAULT ''", "orders", "assigned_at")
-    _add_col_safe(db, "ALTER TABLE orders ADD COLUMN delivered_at TEXT DEFAULT ''", "orders", "delivered_at")
-    _add_col_safe(db, "ALTER TABLE orders ADD COLUMN telegram_file_id TEXT DEFAULT ''", "orders", "telegram_file_id")
-    _add_col_safe(db, "ALTER TABLE orders ADD COLUMN telegram_message_id TEXT DEFAULT ''", "orders", "telegram_message_id")
-    _add_col_safe(db, "ALTER TABLE debt_logs ADD COLUMN actor_employee_id INTEGER", "debt_logs", "actor_employee_id")
-    _add_col_safe(db, "ALTER TABLE debt_logs ADD COLUMN created_ts INTEGER DEFAULT 0", "debt_logs", "created_ts")
-    _add_col_safe(db, "ALTER TABLE products ADD COLUMN code TEXT DEFAULT ''", "products", "code")
+    # Thêm cột mới vào đây khi cần mở rộng schema
+    pass
 
 
 def _them_cot_postgres(db):
-    alterations = [
-        ("employees", "email", "TEXT DEFAULT ''"),
-        ("employees", "address", "TEXT DEFAULT ''"),
-        ("employees", "notes", "TEXT DEFAULT ''"),
-        ("employees", "is_active", "INTEGER DEFAULT 1"),
-        ("employees", "created_at", "TEXT DEFAULT ''"),
-        ("orders", "created_ts", "BIGINT DEFAULT 0"),
-        ("orders", "assigned_at", "TEXT DEFAULT ''"),
-        ("orders", "delivered_at", "TEXT DEFAULT ''"),
-        ("orders", "telegram_file_id", "TEXT DEFAULT ''"),
-        ("orders", "telegram_message_id", "TEXT DEFAULT ''"),
-        ("debt_logs", "actor_employee_id", "INTEGER"),
-        ("debt_logs", "created_ts", "BIGINT DEFAULT 0"),
-        ("products", "code", "TEXT DEFAULT ''"),
-    ]
+    # Thêm cột mới vào đây khi cần mở rộng schema
+    # Ví dụ: ("don_hang", "ten_cot_moi", "TEXT DEFAULT ''")
+    alterations = []
     for table, col, col_type in alterations:
         try:
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}"))

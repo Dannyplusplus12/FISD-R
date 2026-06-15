@@ -4,25 +4,25 @@ from app.database import Base
 
 
 class SanPham(Base):
-    __tablename__ = "products"
+    __tablename__ = "san_pham"
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, index=True, default="")
-    name = Column(String, index=True)
-    description = Column(String, default="")
-    image_path = Column(String, default="")
+    code = Column("ma_hang", String, index=True, default="")
+    name = Column("ten", String, index=True)
+    description = Column("mo_ta", String, default="")
+    image_path = Column("duong_dan_anh", String, default="")
 
     variants = relationship("BienThe", back_populates="san_pham", cascade="all, delete-orphan")
 
 
 class BienThe(Base):
-    __tablename__ = "variants"
+    __tablename__ = "bien_the"
 
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"))
-    color = Column(String, default="")
-    size = Column(String, default="")
-    price = Column(Integer, default=0)
-    stock = Column(Integer, default=0)
+    product_id = Column("ma_san_pham", Integer, ForeignKey("san_pham.id"))
+    color = Column("mau_sac", String, default="")
+    size = Column("kich_co", String, default="")
+    price = Column("don_gia", Integer, default=0)
+    stock = Column("ton_kho", Integer, default=0)
 
     san_pham = relationship("SanPham", back_populates="variants")
