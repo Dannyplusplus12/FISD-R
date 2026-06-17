@@ -54,6 +54,9 @@ class ApiEndpoints {
   // Dashboard
   static const String thongKe = '/thong-ke';
 
+  // Lệnh nhanh
+  static const String lenhNhanh = '/lenh-nhanh';
+
   // Báo cáo / phân tích
   static const String baoCao = '/bao-cao';
   static const String baoCaoDonHangNgay = '/bao-cao/don-hang-ngay';

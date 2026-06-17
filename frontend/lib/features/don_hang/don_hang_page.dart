@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme.dart';
+import '../../core/format_tien.dart';
 import '../../core/session/session.dart';
 import '../../models/don_hang.dart';
+import '../lenh_nhanh/lenh_nhanh_dialog.dart';
 import 'don_hang_provider.dart';
 
 class DonHangPage extends ConsumerStatefulWidget {
@@ -39,6 +40,28 @@ class _DonHangPageState extends ConsumerState<DonHangPage> with SingleTickerProv
                 onPressed: () {
                   ref.read(quanLyDonHangProvider.notifier).lamMoi();
                   ref.read(donHangChoProvider.notifier).lamMoi();
+                },
+              ),
+              const SizedBox(width: 4),
+              FilledButton.icon(
+                icon: const Icon(Icons.bolt, size: 16),
+                label: const Text('Lệnh nhanh'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.navSelected,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                onPressed: () async {
+                  final donId = await moLenhNhanhDialog(context);
+                  if (donId != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Đã tạo đơn #$donId — chờ duyệt'),
+                        backgroundColor: AppColors.activeGreen,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 },
               ),
             ]),
@@ -128,7 +151,6 @@ class _TheDonHang extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat('#,###', 'vi_VN');
     final mauTT = _mauTrangThai(donHang.trangThai);
 
     return Container(
@@ -151,7 +173,7 @@ class _TheDonHang extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 6),
-        Text('${fmt.format(donHang.tongTien)} ₫  •  ${donHang.tongSoLuong} sản phẩm',
+        Text('${dinhDangTien(donHang.tongTien)}  •  ${donHang.tongSoLuong} sản phẩm',
             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         Text(donHang.ngayTao, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         if (onDuyet != null || onTuChoi != null || onHuy != null) ...[
