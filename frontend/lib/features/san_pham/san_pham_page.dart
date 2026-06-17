@@ -31,8 +31,6 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
     return ref.read(sanPhamRepositoryProvider).taiAnhLen(anhFile);
   }
 
-  String _duongDanAnhSanPham(String duongDan) => duongDan;
-
   void _showDialogSanPham(BuildContext context, {SanPham? sanPham}) {
     final tenCtrl = TextEditingController(text: sanPham?.ten ?? '');
     final maCtrl = TextEditingController(text: sanPham?.ma ?? '');
@@ -41,6 +39,7 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
           const [BienThe(mauSac: '', kichCo: '', gia: 0, tonKho: 0)],
     );
     File? anhChon;
+    bool dangLuu = false;
 
     showDialog(
       context: context,
@@ -60,19 +59,26 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (sanPham?.anh != null && sanPham!.anh.isNotEmpty)
-                        Center(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              _duongDanAnhSanPham(sanPham.anh),
-                              width: 120,
-                              height: 120,
-                              fit: BoxFit.cover,
-                            ),
+                      // Ô ảnh preview — nhấn để chọn ảnh mới
+                      Center(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final picker = ImagePicker();
+                            final image = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 85,
+                            );
+                            if (image != null) {
+                              setDialogState(() => anhChon = File(image.path));
+                            }
+                          },
+                          child: _OAnhChonAnh(
+                            anhFile: anhChon,
+                            urlAnh: sanPham?.anh,
                           ),
                         ),
-                      const SizedBox(height: 8),
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: tenCtrl,
                         decoration: const InputDecoration(labelText: 'Tên mẫu'),
@@ -80,33 +86,6 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                       TextField(
                         controller: maCtrl,
                         decoration: const InputDecoration(labelText: 'Mã mẫu'),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              anhChon == null
-                                  ? 'Ảnh mẫu (tùy chọn)'
-                                  : 'Đã chọn: ${anhChon!.path.split('/').last}',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              final picker = ImagePicker();
-                              final image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                                imageQuality: 85,
-                              );
-                              if (image != null) {
-                                setDialogState(
-                                  () => anhChon = File(image.path),
-                                );
-                              }
-                            },
-                            child: const Text('Chọn ảnh'),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -145,14 +124,13 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                   children: [
                                     Expanded(
                                       child: TextField(
-                                        controller:
-                                            TextEditingController(
-                                                text: item.mauSac,
-                                              )
-                                              ..selection =
-                                                  TextSelection.collapsed(
-                                                    offset: item.mauSac.length,
-                                                  ),
+                                        controller: TextEditingController(
+                                              text: item.mauSac,
+                                            )
+                                            ..selection =
+                                                TextSelection.collapsed(
+                                                  offset: item.mauSac.length,
+                                                ),
                                         decoration: const InputDecoration(
                                           labelText: 'Màu',
                                         ),
@@ -171,14 +149,13 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: TextField(
-                                        controller:
-                                            TextEditingController(
-                                                text: item.kichCo,
-                                              )
-                                              ..selection =
-                                                  TextSelection.collapsed(
-                                                    offset: item.kichCo.length,
-                                                  ),
+                                        controller: TextEditingController(
+                                              text: item.kichCo,
+                                            )
+                                            ..selection =
+                                                TextSelection.collapsed(
+                                                  offset: item.kichCo.length,
+                                                ),
                                         decoration: const InputDecoration(
                                           labelText: 'Size',
                                         ),
@@ -201,16 +178,14 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                   children: [
                                     Expanded(
                                       child: TextField(
-                                        controller:
-                                            TextEditingController(
-                                                text: item.gia.toString(),
-                                              )
-                                              ..selection =
-                                                  TextSelection.collapsed(
-                                                    offset: item.gia
-                                                        .toString()
-                                                        .length,
-                                                  ),
+                                        controller: TextEditingController(
+                                              text: item.gia.toString(),
+                                            )
+                                            ..selection =
+                                                TextSelection.collapsed(
+                                                  offset:
+                                                      item.gia.toString().length,
+                                                ),
                                         decoration: const InputDecoration(
                                           labelText: 'Giá',
                                         ),
@@ -230,16 +205,15 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: TextField(
-                                        controller:
-                                            TextEditingController(
-                                                text: item.tonKho.toString(),
-                                              )
-                                              ..selection =
-                                                  TextSelection.collapsed(
-                                                    offset: item.tonKho
-                                                        .toString()
-                                                        .length,
-                                                  ),
+                                        controller: TextEditingController(
+                                              text: item.tonKho.toString(),
+                                            )
+                                            ..selection =
+                                                TextSelection.collapsed(
+                                                  offset: item.tonKho
+                                                      .toString()
+                                                      .length,
+                                                ),
                                         decoration: const InputDecoration(
                                           labelText: 'Số lượng',
                                         ),
@@ -251,7 +225,8 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                               mauSac: item.mauSac,
                                               kichCo: item.kichCo,
                                               gia: item.gia,
-                                              tonKho: int.tryParse(value) ?? 0,
+                                              tonKho:
+                                                  int.tryParse(value) ?? 0,
                                             );
                                           },
                                         ),
@@ -286,43 +261,61 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
+                  onPressed: dangLuu ? null : () => Navigator.of(ctx).pop(),
                   child: const Text('Hủy'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    if (tenCtrl.text.trim().isEmpty) return;
-                    final duongDanAnh = await _taiAnhLen(anhChon);
-                    if (sanPham == null) {
-                      await ref
-                          .read(sanPhamProvider.notifier)
-                          .taoSanPham(
-                            ten: tenCtrl.text.trim(),
-                            ma: maCtrl.text.trim().isEmpty
-                                ? tenCtrl.text.trim()
-                                : maCtrl.text.trim(),
-                            duongDanAnh: duongDanAnh,
-                            bienThes: variants,
-                          );
-                    } else {
-                      await ref
-                          .read(sanPhamProvider.notifier)
-                          .capNhatSanPham(
-                            id: sanPham.id,
-                            ten: tenCtrl.text.trim(),
-                            ma: maCtrl.text.trim().isEmpty
-                                ? tenCtrl.text.trim()
-                                : maCtrl.text.trim(),
-                            duongDanAnh: duongDanAnh.isNotEmpty
-                                ? duongDanAnh
-                                : sanPham.anhKey,
-                            bienThes: variants,
-                          );
-                    }
-                    if (!mounted) return;
-                    if (context.mounted) Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Lưu'),
+                  onPressed: dangLuu
+                      ? null
+                      : () async {
+                          if (tenCtrl.text.trim().isEmpty) return;
+                          setDialogState(() => dangLuu = true);
+                          try {
+                            final duongDanAnh = await _taiAnhLen(anhChon);
+                            if (sanPham == null) {
+                              await ref
+                                  .read(sanPhamProvider.notifier)
+                                  .taoSanPham(
+                                    ten: tenCtrl.text.trim(),
+                                    ma: maCtrl.text.trim().isEmpty
+                                        ? tenCtrl.text.trim()
+                                        : maCtrl.text.trim(),
+                                    duongDanAnh: duongDanAnh,
+                                    bienThes: variants,
+                                  );
+                            } else {
+                              await ref
+                                  .read(sanPhamProvider.notifier)
+                                  .capNhatSanPham(
+                                    id: sanPham.id,
+                                    ten: tenCtrl.text.trim(),
+                                    ma: maCtrl.text.trim().isEmpty
+                                        ? tenCtrl.text.trim()
+                                        : maCtrl.text.trim(),
+                                    duongDanAnh: duongDanAnh.isNotEmpty
+                                        ? duongDanAnh
+                                        : sanPham.anhKey,
+                                    bienThes: variants,
+                                  );
+                            }
+                            if (!mounted) return;
+                            if (context.mounted) Navigator.of(ctx).pop();
+                          } catch (e) {
+                            setDialogState(() => dangLuu = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Lỗi: $e')),
+                              );
+                            }
+                          }
+                        },
+                  child: dangLuu
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Lưu'),
                 ),
               ],
             );
@@ -449,13 +442,113 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
   }
 }
 
+// Ô ảnh preview có thể nhấn — hiện ảnh file, URL, hoặc placeholder
+class _OAnhChonAnh extends StatelessWidget {
+  final File? anhFile;
+  final String? urlAnh;
+
+  const _OAnhChonAnh({this.anhFile, this.urlAnh});
+
+  @override
+  Widget build(BuildContext context) {
+    final coAnh = anhFile != null || (urlAnh != null && urlAnh!.isNotEmpty);
+
+    Widget noiDungAnh;
+    if (anhFile != null) {
+      noiDungAnh = Image.file(
+        anhFile!,
+        width: 140,
+        height: 140,
+        fit: BoxFit.cover,
+      );
+    } else if (urlAnh != null && urlAnh!.isNotEmpty) {
+      noiDungAnh = Image.network(
+        urlAnh!,
+        width: 140,
+        height: 140,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const _OAnhTrong(),
+      );
+    } else {
+      noiDungAnh = const _OAnhTrong();
+    }
+
+    return Stack(
+      children: [
+        Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.textSecondary.withOpacity(0.3),
+              width: 1.5,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.5),
+            child: noiDungAnh,
+          ),
+        ),
+        // Badge camera góc dưới phải khi đã có ảnh
+        if (coAnh)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: AppColors.navSelected,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 4),
+                ],
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _OAnhTrong extends StatelessWidget {
+  const _OAnhTrong();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 140,
+      height: 140,
+      color: AppColors.navUnselected,
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 36,
+            color: AppColors.textSecondary,
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Nhấn để chọn ảnh',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TheSanPhamNgang extends ConsumerWidget {
   final SanPham sanPham;
   final VoidCallback onEdit;
 
   const _TheSanPhamNgang({required this.sanPham, required this.onEdit});
-
-  String _duongDanAnhSanPham(String duongDan) => duongDan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -491,28 +584,31 @@ class _TheSanPhamNgang extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: sanPham.anh.isNotEmpty
                             ? Image.network(
-                                _duongDanAnhSanPham(sanPham.anh),
-                                width: 40,
-                                height: 40,
+                                sanPham.anh,
+                                width: 56,
+                                height: 56,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Container(
-                                      width: 40,
-                                      height: 40,
+                                      width: 56,
+                                      height: 56,
                                       color: AppColors.navUnselected,
                                       child: const Icon(
                                         Icons.broken_image_outlined,
-                                        size: 18,
+                                        size: 20,
                                       ),
                                     ),
                               )
                             : Container(
-                                width: 40,
-                                height: 40,
-                                color: AppColors.navUnselected,
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: AppColors.navUnselected,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                                 child: const Icon(
                                   Icons.inventory_2_outlined,
-                                  size: 20,
+                                  size: 22,
                                   color: AppColors.textSecondary,
                                 ),
                               ),
