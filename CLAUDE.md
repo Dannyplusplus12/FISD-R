@@ -93,6 +93,14 @@ Mọi tên biến, hàm, class, file, URL đều dùng tiếng Việt (có dấu
 - HTTP client đồng bộ: `httpx.Client()` — KHÔNG dùng `requests`
 - Telegram backup chạy trong `threading.Thread(daemon=True)` để không block response
 
+### Lưu Trữ Ảnh — Railway S3 Bucket
+- **Module:** `app/s3.py` — `upload_bytes(data, key, ext)`, `presigned_url(key)`, `download_bytes(key)`
+- **S3 keys:** `san-pham/<filename>` cho ảnh sản phẩm, `giao-hang/<filename>` cho ảnh giao hàng
+- **DB lưu:** S3 key thuần (vd `san-pham/product_20240617_abc123.jpg`) — KHÔNG lưu presigned URL
+- **API trả về:** 2 field riêng: `image_key` (key thuần, dùng khi update) + `image` (presigned URL 24h, dùng để hiển thị)
+- **Flutter:** `SanPham.anhKey` để gửi lên khi update, `SanPham.anh` để hiển thị với `Image.network()`
+- **KHÔNG dùng:** local filesystem, `/tmp`, `FileResponse`, `DELIVERY_UPLOAD_DIR` cho ảnh sản phẩm/giao hàng mới
+
 ### Tiền (VND)
 - Luôn lưu và trả về kiểu `int` — KHÔNG bao giờ dùng `float`
 
@@ -190,7 +198,11 @@ TELEGRAM_BOT_TOKEN=...               (tuỳ chọn)
 TELEGRAM_CHAT_ID=...                 (tuỳ chọn)
 CORS_ALLOWED_ORIGINS=*
 MAX_DELIVERY_PHOTO_MB=10
-DELIVERY_UPLOAD_DIR=/tmp/delivery_proofs
+S3_BUCKET=fisd-images-voesbzcoalcgn (Railway bucket - đã set)
+S3_ACCESS_KEY_ID=...                 (Railway bucket - đã set)
+S3_SECRET_ACCESS_KEY=...             (Railway bucket - đã set)
+S3_ENDPOINT=https://t3.storageapi.dev (Railway bucket - đã set)
+S3_REGION=auto                       (Railway bucket - đã set)
 ```
 
 ### Lệnh Deploy
@@ -225,6 +237,8 @@ flutter run -d chrome
 - KHÔNG gọi `https://backend-production-5efd.up.railway.app` (backend cũ)
 - KHÔNG dùng `float` cho tiền VND
 - KHÔNG dùng `requests` library trong backend (dùng `httpx.Client()`)
+- KHÔNG lưu ảnh vào local filesystem hay `/tmp` (dùng Railway S3 Bucket qua `app/s3.py`)
+- KHÔNG lưu presigned URL vào DB — chỉ lưu S3 key thuần, generate presigned URL khi trả response
 - KHÔNG dùng relative import trong backend (`from ..x import y`)
 - KHÔNG hardcode URL trong Flutter (dùng `ApiEndpoints.xxx`)
 - KHÔNG đặt tên biến/class bằng tiếng Anh cho code mới

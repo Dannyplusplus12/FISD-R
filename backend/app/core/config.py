@@ -18,10 +18,14 @@ class Settings:
         os.environ.get("TELEGRAM_CHAT_ID", "")
     )
 
-    # Where delivery photos are stored on disk
-    DELIVERY_UPLOAD_DIR: str = os.environ.get("DELIVERY_UPLOAD_DIR", "")
+    # S3-compatible object storage (Railway Bucket)
+    S3_BUCKET: str = os.environ.get("S3_BUCKET", "")
+    S3_ACCESS_KEY_ID: str = os.environ.get("S3_ACCESS_KEY_ID", "")
+    S3_SECRET_ACCESS_KEY: str = os.environ.get("S3_SECRET_ACCESS_KEY", "")
+    S3_ENDPOINT: str = os.environ.get("S3_ENDPOINT", "")
+    S3_REGION: str = os.environ.get("S3_REGION", "auto")
 
-    # Max size per delivery photo upload (MB)
+    # Max size per photo upload (MB)
     MAX_DELIVERY_PHOTO_MB: int = int(os.environ.get("MAX_DELIVERY_PHOTO_MB", "8"))
 
 

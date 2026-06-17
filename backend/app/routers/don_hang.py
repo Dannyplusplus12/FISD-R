@@ -6,10 +6,10 @@ from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app import s3
 from app.core.config import settings
 from app.database import get_db, SessionLocal
 from app.models import BienThe, ChiTietDon, DonHang, KhachHang, KhuVuc, NhanVien
@@ -25,35 +25,16 @@ _EXTENSIONS_ANH_HOP_LE = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 _MAX_ANH_BYTES = settings.MAX_DELIVERY_PHOTO_MB * 1024 * 1024
 
 
-def _thu_muc_upload() -> str:
-    thu_muc = settings.DELIVERY_UPLOAD_DIR or "/tmp/delivery_proofs"
-    os.makedirs(thu_muc, exist_ok=True)
-    return thu_muc
-
-
 def _luu_anh_giao_hang(don_id: int, file: UploadFile) -> str:
     ten_file = (file.filename or "proof.jpg").strip()
     ext = os.path.splitext(ten_file)[1].lower()
     if ext not in _EXTENSIONS_ANH_HOP_LE:
         raise HTTPException(status_code=400, detail="Ảnh giao hàng phải là jpg/png/webp/heic")
+    data = file.file.read()
+    if len(data) > _MAX_ANH_BYTES:
+        raise HTTPException(status_code=400, detail=f"Ảnh vượt giới hạn {settings.MAX_DELIVERY_PHOTO_MB}MB")
     ten_an_toan = f"order_{don_id}_{now_vn().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
-    abs_path = os.path.join(_thu_muc_upload(), ten_an_toan)
-    tong = 0
-    with open(abs_path, "wb") as f:
-        while True:
-            chunk = file.file.read(1024 * 1024)
-            if not chunk:
-                break
-            tong += len(chunk)
-            if tong > _MAX_ANH_BYTES:
-                f.close()
-                try:
-                    os.remove(abs_path)
-                except Exception:
-                    pass
-                raise HTTPException(status_code=400, detail=f"Ảnh vượt giới hạn {settings.MAX_DELIVERY_PHOTO_MB}MB")
-            f.write(chunk)
-    return f"/bang-chung-giao/{ten_an_toan}"
+    return s3.upload_bytes(data, f"giao-hang/{ten_an_toan}", ext)
 
 
 def _lay_khu_vuc_mac_dinh(db: Session):
@@ -72,7 +53,11 @@ def _serialize_don(don: DonHang) -> dict:
             "quantity": sl, "price": int(ct.price or 0),
             "current_stock": None, "enough_stock": True,
         })
-    anh_paths = parse_duong_dan_anh(don.delivery_photo_path)
+    raw_paths = parse_duong_dan_anh(don.delivery_photo_path)
+    anh_paths = [
+        s3.presigned_url(p) for p in raw_paths
+        if p and not p.startswith("/") and not p.startswith("local://")
+    ]
     created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
     assigned_at_str = don.assigned_at if isinstance(don.assigned_at, str) else (don.assigned_at.strftime("%Y-%m-%d %H:%M") if don.assigned_at else "")
     delivered_at_str = don.delivered_at if isinstance(don.delivered_at, str) else (don.delivered_at.strftime("%Y-%m-%d %H:%M") if don.delivered_at else "")
@@ -99,19 +84,22 @@ def _serialize_don(don: DonHang) -> dict:
     }
 
 
-def _gui_anh_telegram_async(don_id: int, abs_paths: list, caption: str):
+def _gui_anh_telegram_async(don_id: int, s3_keys: list, caption: str):
     try:
         token = settings.TELEGRAM_BOT_TOKEN
         chat_id = settings.TELEGRAM_CHAT_ID
-        if not token or not chat_id:
+        if not token or not chat_id or not s3_keys:
             return
         db = SessionLocal()
         try:
             with httpx.Client(timeout=60) as client:
-                if len(abs_paths) == 1:
-                    with open(abs_paths[0], "rb") as f:
-                        r = client.post(f"https://api.telegram.org/bot{token}/sendPhoto",
-                                        files={"photo": f}, data={"chat_id": chat_id, "caption": caption})
+                if len(s3_keys) == 1:
+                    data = s3.download_bytes(s3_keys[0])
+                    r = client.post(
+                        f"https://api.telegram.org/bot{token}/sendPhoto",
+                        files={"photo": ("photo.jpg", data, "image/jpeg")},
+                        data={"chat_id": chat_id, "caption": caption},
+                    )
                     if r.status_code == 200:
                         result = r.json().get("result") or {}
                         don = db.query(DonHang).filter(DonHang.id == don_id).first()
@@ -122,25 +110,19 @@ def _gui_anh_telegram_async(don_id: int, abs_paths: list, caption: str):
                             don.telegram_message_id = str(result.get("message_id") or "")
                             db.commit()
                 else:
-                    files, media, opened = {}, [], []
-                    for i, path in enumerate(abs_paths):
-                        key = f"file{i}"
-                        fh = open(path, "rb")
-                        opened.append(fh)
-                        files[key] = fh
-                        item = {"type": "photo", "media": f"attach://{key}"}
+                    files, media = {}, []
+                    for i, key in enumerate(s3_keys):
+                        field = f"file{i}"
+                        files[field] = (f"photo{i}.jpg", s3.download_bytes(key), "image/jpeg")
+                        item = {"type": "photo", "media": f"attach://{field}"}
                         if i == 0 and caption:
                             item["caption"] = caption
                         media.append(item)
-                    try:
-                        client.post(f"https://api.telegram.org/bot{token}/sendMediaGroup",
-                                    files=files, data={"chat_id": chat_id, "media": json.dumps(media, ensure_ascii=False)})
-                    finally:
-                        for fh in opened:
-                            try:
-                                fh.close()
-                            except Exception:
-                                pass
+                    client.post(
+                        f"https://api.telegram.org/bot{token}/sendMediaGroup",
+                        files=files,
+                        data={"chat_id": chat_id, "media": json.dumps(media, ensure_ascii=False)},
+                    )
         finally:
             db.close()
     except Exception as e:
@@ -526,20 +508,9 @@ def _xac_nhan_giao_logic(don: DonHang, items: Optional[List[XacNhanGiaoItem]], d
     return {"status": "success", "message": f"Đơn #{don.id} hoàn thành", "partial": len(thieu_hang) > 0, "picker_note": don.picker_note, "delivered_total": tong_giao}
 
 
-def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_paths: list, items: list, db: Session, ghi_chu: str = "") -> dict:
-    if not photo_paths:
+def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_keys: list, items: list, db: Session, ghi_chu: str = "") -> dict:
+    if not photo_keys:
         raise HTTPException(status_code=400, detail="Bắt buộc chụp ảnh xác nhận giao hàng")
-    abs_paths, chuan_hoa_paths = [], []
-    for raw in photo_paths:
-        if raw.startswith("/bang-chung-giao/"):
-            ten = os.path.basename(raw)
-            abs_p = os.path.join(_thu_muc_upload(), ten)
-            if not os.path.exists(abs_p):
-                raise HTTPException(status_code=400, detail="Ảnh xác nhận không tồn tại, vui lòng chụp lại")
-            chuan_hoa_paths.append(f"/bang-chung-giao/{ten}")
-            abs_paths.append(abs_p)
-        elif raw.startswith("http://") or raw.startswith("https://"):
-            chuan_hoa_paths.append(raw)
 
     picker = db.query(NhanVien).filter(NhanVien.id == picker_id).first()
     if not picker or picker.role not in ("picker", "manager"):
@@ -554,14 +525,13 @@ def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_paths: list, items: lis
 
     ket_qua = _xac_nhan_giao_logic(don, items if items else None, db, ghi_chu)
     don.delivered_by_id, don.delivered_at = picker.id, now_vn().strftime("%Y-%m-%d %H:%M")
-    don.delivery_photo_path = json.dumps(chuan_hoa_paths, ensure_ascii=False) if len(chuan_hoa_paths) > 1 else (chuan_hoa_paths[0] if chuan_hoa_paths else "")
+    don.delivery_photo_path = json.dumps(photo_keys, ensure_ascii=False) if len(photo_keys) > 1 else photo_keys[0]
     db.commit()
 
-    if abs_paths:
-        chu_thich = f"Đơn #{don.id} • {don.customer_name or 'Khách lẻ'}\nPicker: {picker.name}\n{now_vn().strftime('%Y-%m-%d %H:%M')}"
-        if don.picker_note:
-            chu_thich += f"\nGhi chú: {don.picker_note}"
-        threading.Thread(target=_gui_anh_telegram_async, args=(don.id, abs_paths, chu_thich), daemon=True).start()
+    chu_thich = f"Đơn #{don.id} • {don.customer_name or 'Khách lẻ'}\nPicker: {picker.name}\n{now_vn().strftime('%Y-%m-%d %H:%M')}"
+    if don.picker_note:
+        chu_thich += f"\nGhi chú: {don.picker_note}"
+    threading.Thread(target=_gui_anh_telegram_async, args=(don.id, photo_keys, chu_thich), daemon=True).start()
 
     return ket_qua
 
@@ -611,32 +581,4 @@ def xac_nhan_anh_local(data: XacNhanLocalAnh, db: Session = Depends(get_db)):
     if not don:
         raise HTTPException(status_code=404)
     current_paths = parse_duong_dan_anh(don.delivery_photo_path)
-    ten_files = [os.path.basename(str(x).strip()) for x in (data.local_file_names or []) if str(x).strip()] or [os.path.basename(p) for p in current_paths if str(p).strip()]
-    local_paths = [f"local://delivery_proofs/{ten}" for ten in ten_files if ten]
-    if local_paths:
-        don.delivery_photo_path = json.dumps(local_paths, ensure_ascii=False) if len(local_paths) > 1 else local_paths[0]
-    da_xoa = 0
-    for p in current_paths:
-        raw = str(p).strip()
-        if not raw or raw.startswith("local://") or raw.startswith("http"):
-            continue
-        abs_p = os.path.join(_thu_muc_upload(), os.path.basename(raw))
-        if os.path.exists(abs_p):
-            try:
-                os.remove(abs_p)
-                da_xoa += 1
-            except Exception:
-                pass
-    db.commit()
-    return {"status": "ok", "order_id": don.id, "removed_remote_files": da_xoa, "local_paths": local_paths}
-
-
-@anh_router.get("/bang-chung-giao/{ten_file}")
-def lay_file_anh(ten_file: str):
-    ten_an_toan = os.path.basename(ten_file)
-    if ten_an_toan != ten_file:
-        raise HTTPException(status_code=400, detail="Tên file không hợp lệ")
-    abs_p = os.path.join(_thu_muc_upload(), ten_an_toan)
-    if not os.path.exists(abs_p):
-        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh")
-    return FileResponse(abs_p)
+    return {"status": "ok", "order_id": don.id, "removed_remote_files": 0, "local_paths": current_paths}

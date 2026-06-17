@@ -40,6 +40,7 @@ class SanPham {
   final String ma;
   final String ten;
   final String anh;
+  final String anhKey;
   final String khoangGia;
   final List<BienThe> bienThes;
 
@@ -48,6 +49,7 @@ class SanPham {
     required this.ma,
     required this.ten,
     required this.anh,
+    required this.anhKey,
     required this.khoangGia,
     required this.bienThes,
   });
@@ -57,6 +59,7 @@ class SanPham {
         ma: (j['code'] ?? '').toString(),
         ten: (j['name'] ?? '').toString(),
         anh: (j['image'] ?? '').toString(),
+        anhKey: (j['image_key'] ?? '').toString(),
         khoangGia: (j['price_range'] ?? '').toString(),
         bienThes: (j['variants'] as List? ?? [])
             .map((v) => BienThe.fromJson(v as Map<String, dynamic>))

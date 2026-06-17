@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/theme.dart';
 import '../../models/san_pham.dart';
 import 'san_pham_provider.dart';
@@ -32,15 +31,7 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
     return ref.read(sanPhamRepositoryProvider).taiAnhLen(anhFile);
   }
 
-  String _duongDanAnhSanPham(String duongDan) {
-    if (duongDan.isEmpty) return '';
-    if (duongDan.startsWith('http')) return duongDan;
-    final duongDanChuan = duongDan.replaceFirst(
-      '/product-images/',
-      '/anh-san-pham/',
-    );
-    return '$kBackendUrl$duongDanChuan';
-  }
+  String _duongDanAnhSanPham(String duongDan) => duongDan;
 
   void _showDialogSanPham(BuildContext context, {SanPham? sanPham}) {
     final tenCtrl = TextEditingController(text: sanPham?.ten ?? '');
@@ -324,7 +315,7 @@ class _SanPhamPageState extends ConsumerState<SanPhamPage> {
                                 : maCtrl.text.trim(),
                             duongDanAnh: duongDanAnh.isNotEmpty
                                 ? duongDanAnh
-                                : sanPham.anh,
+                                : sanPham.anhKey,
                             bienThes: variants,
                           );
                     }
@@ -464,15 +455,7 @@ class _TheSanPhamNgang extends ConsumerWidget {
 
   const _TheSanPhamNgang({required this.sanPham, required this.onEdit});
 
-  String _duongDanAnhSanPham(String duongDan) {
-    if (duongDan.isEmpty) return '';
-    if (duongDan.startsWith('http')) return duongDan;
-    final duongDanChuan = duongDan.replaceFirst(
-      '/product-images/',
-      '/anh-san-pham/',
-    );
-    return '$kBackendUrl$duongDanChuan';
-  }
+  String _duongDanAnhSanPham(String duongDan) => duongDan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
