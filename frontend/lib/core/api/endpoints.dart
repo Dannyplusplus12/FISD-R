@@ -58,6 +58,7 @@ class ApiEndpoints {
   // Lệnh nhanh
   static const String lenhNhanh = '/lenh-nhanh';
   static const String lenhNhanhTuCauTruc = '/lenh-nhanh/tu-cau-truc';
+  static const String lenhNhanhHoiThoai = '/lenh-nhanh/hoi-thoai';
 
   // Báo cáo / phân tích
   static const String baoCao = '/bao-cao';

@@ -34,6 +34,9 @@ dependencies:
   # Line/bar charts for the analytics page.
   fl_chart: ^0.69.0
 
+  # Voice input for Lệnh nhanh (Web Speech API on Chrome).
+  speech_to_text: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

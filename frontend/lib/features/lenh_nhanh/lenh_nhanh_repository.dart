@@ -8,7 +8,29 @@ class LenhNhanhRepository {
   final Dio _dio;
   LenhNhanhRepository(this._dio);
 
-  Future<KetQuaLenhNhanh> phanTich(String lenh) async {
+  Future<KetQuaHoiThoai> hoiThoai({
+    required String lenh,
+    required String tenKhach,
+    int? khachHangId,
+    required List<MatHangXemTruoc> gioHienTai,
+    required List<TinNhan> lichSu,
+  }) async {
+    final r = await _dio.post(ApiEndpoints.lenhNhanhHoiThoai, data: {
+      'lenh': lenh,
+      'ten_khach': tenKhach,
+      if (khachHangId != null) 'khach_hang_id': khachHangId,
+      'gio_hien_tai': gioHienTai.map((m) => m.toGioHienTaiJson()).toList(),
+      'lich_su': lichSu
+          .map((t) => {
+                'vai_tro': t.laNguoiDung ? 'user' : 'ai',
+                'noi_dung': t.noiDung,
+              })
+          .toList(),
+    });
+    return KetQuaHoiThoai.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<KetQuaLenhNhanh> phanTichOnShot(String lenh) async {
     final r = await _dio.post(ApiEndpoints.lenhNhanh, data: {'lenh': lenh});
     return KetQuaLenhNhanh.fromJson(r.data as Map<String, dynamic>);
   }
