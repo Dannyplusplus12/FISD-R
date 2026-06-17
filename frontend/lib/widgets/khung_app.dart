@@ -9,6 +9,7 @@ import '../features/san_pham/san_pham_page.dart';
 import '../features/don_hang/don_hang_page.dart';
 import '../features/khach_hang/khach_hang_page.dart';
 import '../features/nhan_vien/nhan_vien_page.dart';
+import '../features/phan_tich/phan_tich_page.dart';
 import 'thanh_ben.dart';
 
 class KhungApp extends ConsumerStatefulWidget {
@@ -30,6 +31,8 @@ class _KhungAppState extends ConsumerState<KhungApp> {
       const MucDieuHuong(nhan: 'Khách Hàng', bieu_tuong: Icons.people_outline, trang: KhachHangPage()),
       if (phienLam.isManager)
         const MucDieuHuong(nhan: 'Nhân Viên', bieu_tuong: Icons.badge_outlined, trang: NhanVienPage()),
+      if (phienLam.isManager)
+        const MucDieuHuong(nhan: 'Phân Tích', bieu_tuong: Icons.bar_chart_outlined, trang: PhanTichPage()),
     ];
   }
 

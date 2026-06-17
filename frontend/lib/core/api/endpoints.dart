@@ -53,4 +53,8 @@ class ApiEndpoints {
 
   // Dashboard
   static const String thongKe = '/thong-ke';
+
+  // Báo cáo / phân tích
+  static const String baoCao = '/bao-cao';
+  static const String baoCaoDonHangNgay = '/bao-cao/don-hang-ngay';
 }
