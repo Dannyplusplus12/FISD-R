@@ -6,6 +6,7 @@ import '../../core/session/session.dart';
 import '../../models/don_hang.dart';
 import '../lenh_nhanh/lenh_nhanh_dialog.dart';
 import 'don_hang_provider.dart';
+import 'sua_don_dialog.dart';
 
 class DonHangPage extends ConsumerStatefulWidget {
   const DonHangPage({super.key});
@@ -108,6 +109,13 @@ class _TabLichSu extends ConsumerWidget {
               itemBuilder: (_, i) => _TheDonHang(
                 donHang: ds[i],
                 onHuy: laQuanLy ? () => ref.read(quanLyDonHangProvider.notifier).huy(ds[i].id) : null,
+                onSua: ds[i].dangCho ? () async {
+                  final ok = await moSuaDonDialog(context, ds[i]);
+                  if (ok == true) {
+                    ref.read(quanLyDonHangProvider.notifier).lamMoi();
+                    ref.read(donHangChoProvider.notifier).lamMoi();
+                  }
+                } : null,
               ),
             ),
     );
@@ -135,6 +143,13 @@ class _TabChoDuyet extends ConsumerWidget {
                 donHang: ds[i],
                 onDuyet: laQuanLy ? () => ref.read(donHangChoProvider.notifier).duyet(ds[i].id) : null,
                 onTuChoi: laQuanLy ? () => ref.read(donHangChoProvider.notifier).tuChoi(ds[i].id) : null,
+                onSua: () async {
+                  final ok = await moSuaDonDialog(context, ds[i]);
+                  if (ok == true) {
+                    ref.read(quanLyDonHangProvider.notifier).lamMoi();
+                    ref.read(donHangChoProvider.notifier).lamMoi();
+                  }
+                },
               ),
             ),
     );
@@ -146,8 +161,9 @@ class _TheDonHang extends StatelessWidget {
   final VoidCallback? onDuyet;
   final VoidCallback? onTuChoi;
   final VoidCallback? onHuy;
+  final VoidCallback? onSua;
 
-  const _TheDonHang({required this.donHang, this.onDuyet, this.onTuChoi, this.onHuy});
+  const _TheDonHang({required this.donHang, this.onDuyet, this.onTuChoi, this.onHuy, this.onSua});
 
   @override
   Widget build(BuildContext context) {
@@ -176,10 +192,11 @@ class _TheDonHang extends StatelessWidget {
         Text('${dinhDangTien(donHang.tongTien)}  •  ${donHang.tongSoLuong} sản phẩm',
             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         Text(donHang.ngayTao, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-        if (onDuyet != null || onTuChoi != null || onHuy != null) ...[
+        if (onDuyet != null || onTuChoi != null || onHuy != null || onSua != null) ...[
           const SizedBox(height: 10),
           Row(children: [
-            if (onDuyet != null) _NutHanhDong(nhan: 'Duyệt', mau: AppColors.activeGreen, onNhan: onDuyet!),
+            if (onSua != null) _NutHanhDong(nhan: 'Sửa', mau: Colors.indigo, onNhan: onSua!),
+            if (onDuyet != null) ...[if (onSua != null) const SizedBox(width: 8), _NutHanhDong(nhan: 'Duyệt', mau: AppColors.activeGreen, onNhan: onDuyet!)],
             if (onTuChoi != null) ...[const SizedBox(width: 8), _NutHanhDong(nhan: 'Từ chối', mau: Colors.red, onNhan: onTuChoi!)],
             if (onHuy != null) ...[const SizedBox(width: 8), _NutHanhDong(nhan: 'Hủy', mau: Colors.orange, onNhan: onHuy!)],
           ]),

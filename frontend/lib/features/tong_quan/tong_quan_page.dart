@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme.dart';
+import '../../core/format_tien.dart';
 import '../../core/session/session.dart';
 import '../../models/don_hang.dart';
 import '../san_pham/san_pham_provider.dart';
@@ -60,7 +60,7 @@ class TongQuanPage extends ConsumerWidget {
                           layGiaTri: (ds) => '${ds.length}',
                           layPhuDe: (ds) {
                             final no = ds.fold<int>(0, (t, k) => t + k.no);
-                            return 'Nợ: ${NumberFormat('#,###', 'vi_VN').format(no)} ₫';
+                            return 'Nợ: ${dinhDangTien(no)}';
                           },
                         ),
                       ),
@@ -77,7 +77,7 @@ class TongQuanPage extends ConsumerWidget {
                           layGiaTri: (ds) => '${ds.where((o) => o.hoanThanh).length}',
                           layPhuDe: (ds) {
                             final doanhThu = ds.where((o) => o.hoanThanh).fold<int>(0, (t, o) => t + o.tongTien);
-                            return '${NumberFormat('#,###', 'vi_VN').format(doanhThu)} ₫';
+                            return dinhDangTien(doanhThu);
                           },
                         ),
                       ),
@@ -181,7 +181,6 @@ class _DonHangGanDay extends StatelessWidget {
                 error: (e, _) => Center(child: Text(e.toString())),
                 data: (ds) {
                   final ganDay = ds.take(10).toList();
-                  final fmt = NumberFormat('#,###', 'vi_VN');
                   return ListView.builder(
                     padding: EdgeInsets.zero,
                     itemCount: ganDay.length,
@@ -197,7 +196,7 @@ class _DonHangGanDay extends StatelessWidget {
                             child: Text('#${don.id} ${don.tenKhachHang}',
                                 style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                           ),
-                          Text('${fmt.format(don.tongTien)} ₫',
+                          Text(dinhDangTien(don.tongTien),
                               style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                         ]),
                       );

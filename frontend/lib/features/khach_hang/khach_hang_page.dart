@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme.dart';
+import '../../core/format_tien.dart';
 import '../../models/khach_hang.dart';
 import 'khach_hang_provider.dart';
 
@@ -60,7 +60,6 @@ class _TabKhachHang extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final khachHangAsync = ref.watch(khachHangProvider);
-    final fmt = NumberFormat('#,###', 'vi_VN');
 
     return khachHangAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -80,7 +79,7 @@ class _TabKhachHang extends ConsumerWidget {
               child: Row(children: [
                 Text('${ds.length} khách hàng', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 const Spacer(),
-                Text('Tổng nợ: ${fmt.format(tongNo)} ₫',
+                Text('Tổng nợ: ${dinhDangTien(tongNo)}',
                     style: TextStyle(
                       color: tongNo > 0 ? Colors.red : AppColors.activeGreen,
                       fontSize: 12, fontWeight: FontWeight.w600,
@@ -96,7 +95,7 @@ class _TabKhachHang extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     itemCount: ds.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _TheKhachHang(khachHang: ds[i], fmt: fmt),
+                    itemBuilder: (_, i) => _TheKhachHang(khachHang: ds[i]),
                   ),
           ),
         ]);
@@ -107,9 +106,8 @@ class _TabKhachHang extends ConsumerWidget {
 
 class _TheKhachHang extends StatelessWidget {
   final KhachHang khachHang;
-  final NumberFormat fmt;
 
-  const _TheKhachHang({required this.khachHang, required this.fmt});
+  const _TheKhachHang({required this.khachHang});
 
   @override
   Widget build(BuildContext context) {
@@ -137,7 +135,7 @@ class _TheKhachHang extends StatelessWidget {
           if (khachHang.tenKhuVuc.isNotEmpty)
             Text(khachHang.tenKhuVuc, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ])),
-        Text('${fmt.format(khachHang.no)} ₫',
+        Text(dinhDangTien(khachHang.no),
             style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w600,
               color: khachHang.no > 0 ? Colors.red : (khachHang.no < 0 ? AppColors.activeGreen : AppColors.textSecondary),

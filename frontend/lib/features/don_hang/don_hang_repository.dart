@@ -58,6 +58,19 @@ class DonHangRepository {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<void> suaDon({
+    required int donId,
+    required String tenKhachHang,
+    String soDienThoai = '',
+    required List<MatHangGio> gio,
+  }) async {
+    await _dio.put(ApiEndpoints.suaDon(donId), data: {
+      'customer_name': tenKhachHang,
+      'customer_phone': soDienThoai,
+      'cart': gio.map((e) => e.toJson()).toList(),
+    });
+  }
+
   Future<void> xoa(int donId) async {
     await _dio.delete(ApiEndpoints.donHang(donId));
   }

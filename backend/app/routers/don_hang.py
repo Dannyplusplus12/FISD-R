@@ -197,6 +197,47 @@ def cap_nhat_ngay_don(don_id: int, data: CapNhatNgayDon, db: Session = Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.put("/don-hang/{don_id}/sua")
+def sua_don_hang(don_id: int, data: YeuCauThanhToan, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+    if don.status not in ("pending",):
+        raise HTTPException(status_code=400, detail="Chỉ có thể sửa đơn đang chờ duyệt")
+    try:
+        from sqlalchemy import func as sqla_func
+        ten_khach = data.customer_name.strip() or "Khách lẻ"
+        khach = None
+        if ten_khach != "Khách lẻ":
+            khach = db.query(KhachHang).filter(
+                sqla_func.lower(KhachHang.name) == sqla_func.lower(ten_khach)
+            ).first()
+        don.customer_name = khach.name if khach else ten_khach
+        don.customer_id = khach.id if khach else None
+        # Xóa items cũ và thay bằng items mới
+        db.query(ChiTietDon).filter(ChiTietDon.order_id == don_id).delete()
+        tong = 0
+        for item in data.cart:
+            tong += int(item.quantity) * int(item.price)
+            db.add(ChiTietDon(
+                order_id=don_id,
+                product_name=item.product_name,
+                variant_id=item.variant_id,
+                variant_info=f"{item.color}-{item.size}",
+                quantity=item.quantity,
+                price=item.price,
+            ))
+        don.total_amount = tong
+        db.commit()
+        return {"status": "success", "order_id": don_id}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/thanh-toan")
 def thanh_toan_truc_tiep(data: YeuCauThanhToan, db: Session = Depends(get_db)):
     try:

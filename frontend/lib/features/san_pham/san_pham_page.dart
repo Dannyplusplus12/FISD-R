@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import '../../core/format_tien.dart';
 import '../../models/san_pham.dart';
 import 'san_pham_provider.dart';
 import 'san_pham_repository.dart';
@@ -552,8 +552,6 @@ class _TheSanPhamNgang extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fmt = NumberFormat('#,###', 'vi_VN');
-
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -713,7 +711,7 @@ class _TheSanPhamNgang extends ConsumerWidget {
                     .map(
                       (variant) => Chip(
                         label: Text(
-                          '${variant.tenHienThi} • ${variant.tonKho} cái • ${fmt.format(variant.gia)}₫',
+                          '${variant.tenHienThi} • ${variant.tonKho} cái • ${dinhDangTien(variant.gia)}',
                         ),
                         visualDensity: VisualDensity.compact,
                         backgroundColor: AppColors.navUnselected,

@@ -37,6 +37,7 @@ class ApiEndpoints {
   static const String donHangQuanLy = '/don-hang/quan-ly';
   static String donHangDaNhan(int pickerId) => '/don-hang/da-nhan?picker_id=$pickerId';
 
+  static String suaDon(int id) => '/don-hang/$id/sua';
   static String duyetDon(int id) => '/don-hang/$id/duyet';
   static String tuChoiDon(int id) => '/don-hang/$id/tu-choi';
   static String huyDon(int id) => '/don-hang/$id/huy';
