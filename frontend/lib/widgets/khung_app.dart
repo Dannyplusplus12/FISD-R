@@ -10,6 +10,7 @@ import '../features/don_hang/don_hang_page.dart';
 import '../features/khach_hang/khach_hang_page.dart';
 import '../features/nhan_vien/nhan_vien_page.dart';
 import '../features/phan_tich/phan_tich_page.dart';
+import '../features/xuat_hang/xuat_hang_page.dart';
 import 'thanh_ben.dart';
 
 class KhungApp extends ConsumerStatefulWidget {
@@ -26,6 +27,7 @@ class _KhungAppState extends ConsumerState<KhungApp> {
   List<MucDieuHuong> _xayDungMenu(Session phienLam) {
     return [
       const MucDieuHuong(nhan: 'Tổng Quan', bieu_tuong: Icons.dashboard_outlined, trang: TongQuanPage()),
+      const MucDieuHuong(nhan: 'Xuất Hàng', bieu_tuong: Icons.storefront_outlined, trang: XuatHangPage()),
       const MucDieuHuong(nhan: 'Sản Phẩm', bieu_tuong: Icons.inventory_2_outlined, trang: SanPhamPage()),
       const MucDieuHuong(nhan: 'Đơn Hàng', bieu_tuong: Icons.shopping_cart_outlined, trang: DonHangPage()),
       const MucDieuHuong(nhan: 'Khách Hàng', bieu_tuong: Icons.people_outline, trang: KhachHangPage()),
