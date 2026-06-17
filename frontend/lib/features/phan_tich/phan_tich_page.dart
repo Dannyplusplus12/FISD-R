@@ -36,7 +36,7 @@ class _PhanTichPageState extends State<PhanTichPage> with SingleTickerProviderSt
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Phân Tích',
+                  'Phân tích',
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,

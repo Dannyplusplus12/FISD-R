@@ -32,7 +32,7 @@ class _KhungAppState extends ConsumerState<KhungApp> {
       if (phienLam.isManager)
         const MucDieuHuong(nhan: 'Nhân Viên', bieu_tuong: Icons.badge_outlined, trang: NhanVienPage()),
       if (phienLam.isManager)
-        const MucDieuHuong(nhan: 'Phân Tích', bieu_tuong: Icons.bar_chart_outlined, trang: PhanTichPage()),
+        const MucDieuHuong(nhan: 'Phân tích', bieu_tuong: Icons.bar_chart_outlined, trang: PhanTichPage()),
     ];
   }
 
