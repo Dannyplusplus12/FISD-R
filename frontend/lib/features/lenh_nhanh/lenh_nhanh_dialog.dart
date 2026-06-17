@@ -106,25 +106,10 @@ class _LenhNhanhDialogState extends ConsumerState<LenhNhanhDialog> {
                 _NutHanhDong(
                   nhan: 'Phân tích',
                   mau: AppColors.navSelected,
-                  dangTai: tt.trangThai == TrangThaiLenh.dangGoiAI ||
-                      tt.trangThai == TrangThaiLenh.dangTimDB,
+                  dangTai: tt.trangThai == TrangThaiLenh.dangPhanTich,
                   onNhan: tt.dangTai ? null : _phanTich,
                 ),
               ]),
-
-              if (tt.dangTai && tt.nhanTrangThai.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Row(children: [
-                  const SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(tt.nhanTrangThai,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary)),
-                ]),
-              ],
 
               if (tt.trangThai == TrangThaiLenh.xemTruoc ||
                   tt.trangThai == TrangThaiLenh.dangTao) ...[

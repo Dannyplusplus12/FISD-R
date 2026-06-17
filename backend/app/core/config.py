@@ -28,5 +28,8 @@ class Settings:
     # Max size per photo upload (MB)
     MAX_DELIVERY_PHOTO_MB: int = int(os.environ.get("MAX_DELIVERY_PHOTO_MB", "8"))
 
+    # Groq AI API key (dùng cho tính năng Lệnh nhanh)
+    GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
+
 
 settings = Settings()

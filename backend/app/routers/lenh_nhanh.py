@@ -1,19 +1,30 @@
+import json
 import re
 import unicodedata
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import settings
 from app.database import get_db
-from app.models import BienThe, KhachHang, SanPham
+from app.models import KhachHang, SanPham
 
 router = APIRouter(tags=["Lệnh nhanh"])
 
 _TU_TIEP_HEAD = {"chi", "anh", "em", "ba", "ong", "co", "chu", "ban"}
-_TU_DON_VI = {"doi", "cai", "chiec", "hop", "bo", "bich", "goi", "tui", "kien"}
-_TU_BO_QUA = {"tao", "dat", "them", "mua", "gom", "lenh", "nhanh", "don", "hang", "cho"}
+_GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+_GROQ_MODEL = "llama-3.1-8b-instant"
+_PROMPT = (
+    "Trích xuất thông tin đặt hàng từ lệnh sau. "
+    "Chỉ trả về JSON thuần, không giải thích, không markdown.\n\n"
+    'Lệnh: "{lenh}"\n\n'
+    'Format: {{"khach": "tên khách giữ nguyên hoặc Khách lẻ", '
+    '"items": [{{"sp": "tên sản phẩm", "mau": "màu hoặc null", '
+    '"size": "kích cỡ hoặc null", "sl": số_lượng}}]}}'
+)
 
 
 def _bo_dau(text: str) -> str:
@@ -22,28 +33,41 @@ def _bo_dau(text: str) -> str:
     return re.sub(r"\s+", " ", ascii_text).strip()
 
 
-def _tim_khach(lenh_chuan: str, khach_hangs: list):
-    """Trả về (ten_khach, khach_hang_id, lenh_con_lai)"""
-    # Khớp tên đầy đủ trong DB (dài nhất trước)
+def _goi_groq(lenh: str) -> dict:
+    api_key = getattr(settings, "GROQ_API_KEY", "") or ""
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY chưa được cấu hình")
+    prompt = _PROMPT.replace("{lenh}", lenh)
+    with httpx.Client(timeout=20) as client:
+        r = client.post(
+            _GROQ_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": _GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+            },
+        )
+        r.raise_for_status()
+    raw = r.json()["choices"][0]["message"]["content"].strip()
+    raw = re.sub(r"^```json\s*|^```\s*|```$", "", raw, flags=re.MULTILINE).strip()
+    return json.loads(raw)
+
+
+def _tim_khach_theo_ten(ten_raw: str, khach_hangs: list):
+    ten_chuan = _bo_dau(ten_raw)
     for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
-        kh_chuan = _bo_dau(kh.name)
-        if len(kh_chuan) >= 2 and kh_chuan in lenh_chuan:
-            return kh.name, kh.id, lenh_chuan.replace(kh_chuan, " ")
-
-    # Thử "chị/anh X" patterns
-    for title in _TU_TIEP_HEAD:
-        m = re.search(rf"\b{re.escape(title)}\s+([a-z]+)", lenh_chuan)
-        if m:
-            ten_raw = m.group(1)
-            for kh in khach_hangs:
-                parts = _bo_dau(kh.name).split()
-                if ten_raw in parts:
-                    return kh.name, kh.id, lenh_chuan.replace(m.group(0), " ")
-            # Không có trong DB — dùng tên từ lệnh
-            ten_hien = title.capitalize() + " " + ten_raw.capitalize()
-            return ten_hien, None, lenh_chuan.replace(m.group(0), " ")
-
-    return "Khách lẻ", None, lenh_chuan
+        if _bo_dau(kh.name) == ten_chuan:
+            return kh.name, kh.id
+    # Bỏ tiếp đầu ngữ
+    parts = [p for p in ten_chuan.split() if p not in _TU_TIEP_HEAD]
+    ten_bo_tiep = " ".join(parts)
+    if ten_bo_tiep:
+        for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
+            kh_chuan = _bo_dau(kh.name)
+            if kh_chuan == ten_bo_tiep or ten_bo_tiep in kh_chuan or kh_chuan in ten_bo_tiep:
+                return kh.name, kh.id
+    return ten_raw if ten_raw and ten_raw != "Khách lẻ" else "Khách lẻ", None
 
 
 def _tim_san_pham(candidate: str, sp_map: dict):
@@ -52,29 +76,15 @@ def _tim_san_pham(candidate: str, sp_map: dict):
     for key, sp in sp_map.items():
         if candidate in key or key in candidate:
             return sp
-    # Khớp theo từng từ
     cand_words = set(candidate.split())
     for key, sp in sp_map.items():
-        key_words = set(key.split())
-        if cand_words & key_words:
+        if cand_words & set(key.split()):
             return sp
     return None
 
 
 class YeuCauLenhNhanh(BaseModel):
     lenh: str
-
-
-class ItemAI(BaseModel):
-    sp: str
-    mau: Optional[str] = None
-    size: Optional[str] = None
-    sl: int = 1
-
-
-class YeuCauTuCauTruc(BaseModel):
-    khach: str = "Khách lẻ"
-    items: List[ItemAI]
 
 
 class MatHangXemTruoc(BaseModel):
@@ -95,46 +105,16 @@ class KetQuaLenhNhanh(BaseModel):
     tong_tien: int
 
 
-def _tim_khach_theo_ten(ten_raw: str, khach_hangs: list):
-    """Tìm khách hàng theo tên, bỏ qua các tiếp đầu ngữ chị/anh/..."""
-    ten_chuan = _bo_dau(ten_raw)
-    # Thử khớp đầy đủ trước
-    for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
-        if _bo_dau(kh.name) == ten_chuan:
-            return kh.name, kh.id
-    # Bỏ tiếp đầu ngữ rồi thử lại
-    parts = ten_chuan.split()
-    ten_bo_tiep = " ".join(p for p in parts if p not in _TU_TIEP_HEAD)
-    if ten_bo_tiep:
-        for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
-            kh_chuan = _bo_dau(kh.name)
-            if kh_chuan == ten_bo_tiep or ten_bo_tiep in kh_chuan or kh_chuan in ten_bo_tiep:
-                return kh.name, kh.id
-    # Không tìm thấy trong DB — dùng tên từ AI
-    return ten_raw if ten_raw and ten_raw != "Khách lẻ" else "Khách lẻ", None
-
-
-@router.post("/lenh-nhanh/tu-cau-truc", response_model=KetQuaLenhNhanh)
-def phan_tich_tu_cau_truc(yeu_cau: YeuCauTuCauTruc, db: Session = Depends(get_db)):
-    """Nhận JSON đã parse sẵn từ AI, chỉ làm việc tìm DB."""
-    san_phams = db.query(SanPham).options(joinedload(SanPham.variants)).all()
-    khach_hangs = db.query(KhachHang).all()
-
+def _tim_gio(items: list, san_phams: list, canh_bao: list) -> List[MatHangXemTruoc]:
     sp_map = {_bo_dau(sp.name): sp for sp in san_phams}
-    canh_bao: List[str] = []
     gio: List[MatHangXemTruoc] = []
-
-    ten_khach, khach_hang_id = _tim_khach_theo_ten(yeu_cau.khach, khach_hangs)
-
-    for item in yeu_cau.items:
-        sp = _tim_san_pham(_bo_dau(item.sp), sp_map)
+    for item in items:
+        sp = _tim_san_pham(_bo_dau(str(item.get("sp", ""))), sp_map)
         if not sp:
-            canh_bao.append(f"Không tìm thấy sản phẩm: '{item.sp}'")
+            canh_bao.append(f"Không tìm thấy sản phẩm: '{item.get('sp')}'")
             continue
-
-        mau_chuan = _bo_dau(item.mau) if item.mau else ""
-        kc_chuan = _bo_dau(item.size) if item.size else ""
-
+        mau_chuan = _bo_dau(str(item["mau"])) if item.get("mau") else ""
+        kc_chuan = _bo_dau(str(item["size"])) if item.get("size") else ""
         bien_the = None
         for v in sp.variants:
             mau_ok = not mau_chuan or _bo_dau(v.color) == mau_chuan
@@ -142,132 +122,39 @@ def phan_tich_tu_cau_truc(yeu_cau: YeuCauTuCauTruc, db: Session = Depends(get_db
             if mau_ok and kc_ok:
                 bien_the = v
                 break
-
         if bien_the:
+            so_luong = int(item.get("sl", 1))
             gio.append(MatHangXemTruoc(
                 bien_the_id=bien_the.id,
                 ten_san_pham=sp.name,
                 mau_sac=bien_the.color,
                 kich_co=bien_the.size,
                 don_gia=int(bien_the.price or 0),
-                so_luong=item.sl,
-                thanh_tien=int(bien_the.price or 0) * item.sl,
+                so_luong=so_luong,
+                thanh_tien=int(bien_the.price or 0) * so_luong,
             ))
         else:
-            mau_hien = item.mau or "bất kỳ"
-            kc_hien = item.size or "bất kỳ"
-            canh_bao.append(f"'{sp.name}' không có biến thể màu={mau_hien}, size={kc_hien}")
-
-    if not gio:
-        canh_bao.append("Không tìm thấy sản phẩm nào")
-
-    return KetQuaLenhNhanh(
-        ten_khach=ten_khach,
-        khach_hang_id=khach_hang_id,
-        gio=gio,
-        canh_bao=canh_bao,
-        tong_tien=sum(m.thanh_tien for m in gio),
-    )
+            canh_bao.append(
+                f"'{sp.name}' không có biến thể màu={item.get('mau') or 'bất kỳ'}, "
+                f"size={item.get('size') or 'bất kỳ'}"
+            )
+    return gio
 
 
 @router.post("/lenh-nhanh", response_model=KetQuaLenhNhanh)
 def phan_tich_lenh_nhanh(yeu_cau: YeuCauLenhNhanh, db: Session = Depends(get_db)):
     san_phams = db.query(SanPham).options(joinedload(SanPham.variants)).all()
     khach_hangs = db.query(KhachHang).all()
-
-    lenh_chuan = _bo_dau(yeu_cau.lenh)
     canh_bao: List[str] = []
 
-    sp_map = {_bo_dau(sp.name): sp for sp in san_phams}
-
-    ten_khach, khach_hang_id, lenh_con = _tim_khach(lenh_chuan, khach_hangs)
-
-    tokens = [t for t in lenh_con.split() if t not in _TU_BO_QUA]
-
-    gio: List[MatHangXemTruoc] = []
-    i = 0
-
-    while i < len(tokens):
-        t = tokens[i]
-
-        if not re.match(r"^\d+$", t):
-            i += 1
-            continue
-
-        so_luong = int(t)
-        i += 1
-
-        # Bỏ qua đơn vị đếm
-        if i < len(tokens) and tokens[i] in _TU_DON_VI:
-            i += 1
-
-        # Tìm sản phẩm (thử combo 1-4 token)
-        san_pham_found = None
-        tokens_used = 0
-        for n in range(min(4, len(tokens) - i), 0, -1):
-            candidate = " ".join(tokens[i : i + n])
-            sp = _tim_san_pham(candidate, sp_map)
-            if sp:
-                san_pham_found = sp
-                tokens_used = n
-                break
-
-        if not san_pham_found:
-            if i < len(tokens):
-                canh_bao.append(f"Không nhận ra sản phẩm: '{tokens[i]}'")
-                i += 1
-            continue
-
-        i += tokens_used
-
-        mau_chuan_map = {_bo_dau(v.color): v.color for v in san_pham_found.variants if v.color}
-        kc_chuan_map = {_bo_dau(v.size): v.size for v in san_pham_found.variants if v.size}
-
-        mau_chuan = ""
-        kc_chuan = ""
-
-        # Tiêu thụ các token màu/size tiếp theo
-        while i < len(tokens):
-            tok = tokens[i]
-            if tok in mau_chuan_map and not mau_chuan:
-                mau_chuan = tok
-                i += 1
-            elif tok in kc_chuan_map and not kc_chuan:
-                kc_chuan = tok
-                i += 1
-            else:
-                break
-
-        # Tìm biến thể khớp
-        bien_the = None
-        for v in san_pham_found.variants:
-            mau_ok = not mau_chuan or _bo_dau(v.color) == mau_chuan
-            kc_ok = not kc_chuan or _bo_dau(v.size) == kc_chuan
-            if mau_ok and kc_ok:
-                bien_the = v
-                break
-
-        if bien_the:
-            gio.append(
-                MatHangXemTruoc(
-                    bien_the_id=bien_the.id,
-                    ten_san_pham=san_pham_found.name,
-                    mau_sac=bien_the.color,
-                    kich_co=bien_the.size,
-                    don_gia=int(bien_the.price or 0),
-                    so_luong=so_luong,
-                    thanh_tien=int(bien_the.price or 0) * so_luong,
-                )
-            )
-        else:
-            mau_hien = mau_chuan_map.get(mau_chuan, mau_chuan) or "bất kỳ"
-            kc_hien = kc_chuan_map.get(kc_chuan, kc_chuan) or "bất kỳ"
-            canh_bao.append(
-                f"'{san_pham_found.name}' không có biến thể màu={mau_hien}, size={kc_hien}"
-            )
+    parsed = _goi_groq(yeu_cau.lenh)
+    ten_khach, khach_hang_id = _tim_khach_theo_ten(
+        str(parsed.get("khach", "Khách lẻ")), khach_hangs
+    )
+    gio = _tim_gio(parsed.get("items", []), san_phams, canh_bao)
 
     if not gio:
-        canh_bao.append("Không tìm thấy sản phẩm nào trong lệnh này")
+        canh_bao.append("Không tìm thấy sản phẩm nào")
 
     return KetQuaLenhNhanh(
         ten_khach=ten_khach,
