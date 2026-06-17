@@ -65,6 +65,18 @@ class YeuCauLenhNhanh(BaseModel):
     lenh: str
 
 
+class ItemAI(BaseModel):
+    sp: str
+    mau: Optional[str] = None
+    size: Optional[str] = None
+    sl: int = 1
+
+
+class YeuCauTuCauTruc(BaseModel):
+    khach: str = "Khách lẻ"
+    items: List[ItemAI]
+
+
 class MatHangXemTruoc(BaseModel):
     bien_the_id: int
     ten_san_pham: str
@@ -81,6 +93,81 @@ class KetQuaLenhNhanh(BaseModel):
     gio: List[MatHangXemTruoc]
     canh_bao: List[str]
     tong_tien: int
+
+
+def _tim_khach_theo_ten(ten_raw: str, khach_hangs: list):
+    """Tìm khách hàng theo tên, bỏ qua các tiếp đầu ngữ chị/anh/..."""
+    ten_chuan = _bo_dau(ten_raw)
+    # Thử khớp đầy đủ trước
+    for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
+        if _bo_dau(kh.name) == ten_chuan:
+            return kh.name, kh.id
+    # Bỏ tiếp đầu ngữ rồi thử lại
+    parts = ten_chuan.split()
+    ten_bo_tiep = " ".join(p for p in parts if p not in _TU_TIEP_HEAD)
+    if ten_bo_tiep:
+        for kh in sorted(khach_hangs, key=lambda k: len(k.name), reverse=True):
+            kh_chuan = _bo_dau(kh.name)
+            if kh_chuan == ten_bo_tiep or ten_bo_tiep in kh_chuan or kh_chuan in ten_bo_tiep:
+                return kh.name, kh.id
+    # Không tìm thấy trong DB — dùng tên từ AI
+    return ten_raw if ten_raw and ten_raw != "Khách lẻ" else "Khách lẻ", None
+
+
+@router.post("/lenh-nhanh/tu-cau-truc", response_model=KetQuaLenhNhanh)
+def phan_tich_tu_cau_truc(yeu_cau: YeuCauTuCauTruc, db: Session = Depends(get_db)):
+    """Nhận JSON đã parse sẵn từ AI, chỉ làm việc tìm DB."""
+    san_phams = db.query(SanPham).options(joinedload(SanPham.variants)).all()
+    khach_hangs = db.query(KhachHang).all()
+
+    sp_map = {_bo_dau(sp.name): sp for sp in san_phams}
+    canh_bao: List[str] = []
+    gio: List[MatHangXemTruoc] = []
+
+    ten_khach, khach_hang_id = _tim_khach_theo_ten(yeu_cau.khach, khach_hangs)
+
+    for item in yeu_cau.items:
+        sp = _tim_san_pham(_bo_dau(item.sp), sp_map)
+        if not sp:
+            canh_bao.append(f"Không tìm thấy sản phẩm: '{item.sp}'")
+            continue
+
+        mau_chuan = _bo_dau(item.mau) if item.mau else ""
+        kc_chuan = _bo_dau(item.size) if item.size else ""
+
+        bien_the = None
+        for v in sp.variants:
+            mau_ok = not mau_chuan or _bo_dau(v.color) == mau_chuan
+            kc_ok = not kc_chuan or _bo_dau(v.size) == kc_chuan
+            if mau_ok and kc_ok:
+                bien_the = v
+                break
+
+        if bien_the:
+            gio.append(MatHangXemTruoc(
+                bien_the_id=bien_the.id,
+                ten_san_pham=sp.name,
+                mau_sac=bien_the.color,
+                kich_co=bien_the.size,
+                don_gia=int(bien_the.price or 0),
+                so_luong=item.sl,
+                thanh_tien=int(bien_the.price or 0) * item.sl,
+            ))
+        else:
+            mau_hien = item.mau or "bất kỳ"
+            kc_hien = item.size or "bất kỳ"
+            canh_bao.append(f"'{sp.name}' không có biến thể màu={mau_hien}, size={kc_hien}")
+
+    if not gio:
+        canh_bao.append("Không tìm thấy sản phẩm nào")
+
+    return KetQuaLenhNhanh(
+        ten_khach=ten_khach,
+        khach_hang_id=khach_hang_id,
+        gio=gio,
+        canh_bao=canh_bao,
+        tong_tien=sum(m.thanh_tien for m in gio),
+    )
 
 
 @router.post("/lenh-nhanh", response_model=KetQuaLenhNhanh)

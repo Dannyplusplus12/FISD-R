@@ -1,3 +1,45 @@
+class ItemAI {
+  final String sp;
+  final String? mau;
+  final String? size;
+  final int sl;
+
+  const ItemAI({required this.sp, this.mau, this.size, required this.sl});
+
+  factory ItemAI.fromJson(Map<String, dynamic> j) => ItemAI(
+        sp: (j['sp'] ?? '').toString(),
+        mau: j['mau']?.toString(),
+        size: j['size']?.toString(),
+        sl: (j['sl'] ?? 1) as int,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'sp': sp,
+        if (mau != null) 'mau': mau,
+        if (size != null) 'size': size,
+        'sl': sl,
+      };
+}
+
+class IntentAI {
+  final String khach;
+  final List<ItemAI> items;
+
+  const IntentAI({required this.khach, required this.items});
+
+  factory IntentAI.fromJson(Map<String, dynamic> j) => IntentAI(
+        khach: (j['khach'] ?? 'Khách lẻ').toString(),
+        items: (j['items'] as List? ?? [])
+            .map((e) => ItemAI.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'khach': khach,
+        'items': items.map((e) => e.toJson()).toList(),
+      };
+}
+
 class MatHangXemTruoc {
   final int bienTheId;
   final String tenSanPham;

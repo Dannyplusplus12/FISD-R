@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format_tien.dart';
 import '../../core/theme.dart';
-import '../../core/session/session.dart';
 import '../don_hang/don_hang_provider.dart';
 import 'lenh_nhanh_provider.dart';
 import 'lenh_nhanh_model.dart';
@@ -41,8 +40,7 @@ class _LenhNhanhDialogState extends ConsumerState<LenhNhanhDialog> {
   }
 
   void _taoDon() {
-    final phien = ref.read(sessionProvider);
-    ref.read(lenhNhanhProvider.notifier).taoDon(nhanVienId: phien.employeeId);
+    ref.read(lenhNhanhProvider.notifier).taoDon();
   }
 
   @override
@@ -108,10 +106,25 @@ class _LenhNhanhDialogState extends ConsumerState<LenhNhanhDialog> {
                 _NutHanhDong(
                   nhan: 'Phân tích',
                   mau: AppColors.navSelected,
-                  dangTai: tt.trangThai == TrangThaiLenh.dangPhanTich,
+                  dangTai: tt.trangThai == TrangThaiLenh.dangGoiAI ||
+                      tt.trangThai == TrangThaiLenh.dangTimDB,
                   onNhan: tt.dangTai ? null : _phanTich,
                 ),
               ]),
+
+              if (tt.dangTai && tt.nhanTrangThai.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  const SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(tt.nhanTrangThai,
+                      style: const TextStyle(
+                          fontSize: 13, color: AppColors.textSecondary)),
+                ]),
+              ],
 
               if (tt.trangThai == TrangThaiLenh.xemTruoc ||
                   tt.trangThai == TrangThaiLenh.dangTao) ...[
