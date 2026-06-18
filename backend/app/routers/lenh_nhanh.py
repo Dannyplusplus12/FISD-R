@@ -169,6 +169,32 @@ class KetQuaLenhNhanh(BaseModel):
     tong_tien: int
 
 
+def _ap_dung_gioi_han_kho(
+    gio: List[MatHangXemTruoc], bt_map: dict
+) -> tuple[List[MatHangXemTruoc], List[str]]:
+    """Giới hạn số lượng theo tồn kho thực tế. stock>0 thì enforce, stock==0 thì bỏ qua (chưa cấu hình)."""
+    gio_final: List[MatHangXemTruoc] = []
+    canh_bao: List[str] = []
+    for m in gio:
+        bt = bt_map.get(m.bien_the_id)
+        if bt is not None and bt.stock > 0 and m.so_luong > bt.stock:
+            canh_bao.append(
+                f"{m.ten_san_pham} {m.mau_sac} {m.kich_co}: "
+                f"chỉ còn {bt.stock} — đã giảm từ {m.so_luong}"
+            )
+            m = MatHangXemTruoc(
+                bien_the_id=m.bien_the_id,
+                ten_san_pham=m.ten_san_pham,
+                mau_sac=m.mau_sac,
+                kich_co=m.kich_co,
+                don_gia=m.don_gia,
+                so_luong=bt.stock,
+                thanh_tien=m.don_gia * bt.stock,
+            )
+        gio_final.append(m)
+    return gio_final, canh_bao
+
+
 def _xu_ly_items(items: list, san_phams: list, sp_map: dict) -> tuple[List[MatHangXemTruoc], List[str]]:
     gio: List[MatHangXemTruoc] = []
     canh_bao: List[str] = []
@@ -209,34 +235,46 @@ def _xu_ly_items(items: list, san_phams: list, sp_map: dict) -> tuple[List[MatHa
 # ── Hội thoại có ngữ cảnh ──────────────────────────────────────────────────
 
 _PROMPT_HOI_THOAI = """\
-Bạn là AI trợ lý bán hàng. Nhân viên dùng lệnh tự nhiên để quản lý đơn hàng đang mở.
+Bạn là AI cập nhật giỏ hàng theo lệnh nhân viên.
 
-Catalog sản phẩm:
+=== CATALOG SẢN PHẨM ===
 {catalog}
 
-Giỏ hàng hiện tại (khách: {ten_khach}):
+=== GIỎ HÀNG HIỆN TẠI (khách: {ten_khach}) ===
 {gio_text}
 
-Lịch sử hội thoại gần đây:
+=== LỊCH SỬ ===
 {lich_su_text}
 
-Lệnh mới: "{lenh}"
+=== LỆNH MỚI ===
+"{lenh}"
 
-QUY TẮC QUAN TRỌNG:
-- "thêm X" → thêm X vào giỏ, GIỮ NGUYÊN phần còn lại
-- "bỏ/xóa X" → xóa X khỏi giỏ
-- "đổi sl/số lượng X thành N" / "thêm N đôi nữa" → thay đổi số lượng của X
-- "đổi màu/size của X" → cập nhật biến thể X trong giỏ
-- "đặt cho/sửa thành/đổi khách thành X" → chỉ đổi tên khách, GIỮ NGUYÊN toàn bộ giỏ
-- "xong" / "ok" / "đặt đi" / "xác nhận" → hanh_dong="xac_nhan"
-- "làm lại" / "xóa hết" / "hủy tất cả" → hanh_dong="dat_lai"
-- Lệnh mơ hồ không liên quan → hanh_dong="khong_ro", giải thích trong phan_hoi
-- LUÔN trả về TOÀN BỘ giỏ hàng sau khi cập nhật (kể cả item không thay đổi)
-- phan_hoi: 1 câu ngắn thân thiện mô tả vừa làm gì (ví dụ: "Đã thêm 2 Sandal trắng 38")
+=== HƯỚNG DẪN ===
+Phân tích lệnh và trả về giỏ hàng SAU KHI ĐÃ THỰC HIỆN lệnh đó.
+
+LOẠI LỆNH và cách xử lý items[]:
+A) THÊM ("thêm X", "cho thêm X", "thêm N đôi X") → giữ TẤT CẢ items cũ + thêm X mới
+B) XÓA ("bỏ X ra", "xóa X", "không lấy X", "bỏ đi") → giữ items khác, LOẠI BỎ X khỏi danh sách
+C) SỬA SỐ LƯỢNG ("đổi X thành N đôi", "X thêm N nữa", "giảm X còn N") → cập nhật sl của X
+D) SỬA BIẾN THỂ ("đổi size/màu X") → cập nhật màu/size của X, giữ sl
+E) ĐỔI KHÁCH ("đặt cho Y", "không phải X, là Y") → đổi "khach", giữ NGUYÊN items
+F) XÁC NHẬN ("xong", "ok", "đặt đi", "tạo đơn") → hanh_dong="xac_nhan"
+G) LÀM LẠI ("làm lại", "xóa hết", "hủy") → hanh_dong="dat_lai"
+
+VÍ DỤ MINH HỌA (giỏ cũ → lệnh → items mới):
+- ["Longden đen 40 ×2"] + "bỏ longden ra" → items: []
+- ["Longden đen 40 ×2", "Sandal trắng 37 ×1"] + "xóa sandal" → items: [{{"sp":"Longden","mau":"đen","size":"40","sl":2}}]
+- ["Longden đen 40 ×2"] + "thêm 1 sandal trắng 37" → items: [{{"sp":"Longden","mau":"đen","size":"40","sl":2}},{{"sp":"Sandal","mau":"trắng","size":"37","sl":1}}]
+- ["Longden đen 40 ×2"] + "đổi longden thành 4 đôi" → items: [{{"sp":"Longden","mau":"đen","size":"40","sl":4}}]
+- ["Longden đen 40 ×2"] + "đổi khách thành chị Lan" → khach="Lan", items: [{{"sp":"Longden","mau":"đen","size":"40","sl":2}}]
+
+QUY TẮC CUỐI:
+- items[] là danh sách ĐẦY ĐỦ sau khi thực hiện (không phải chỉ phần thay đổi)
 - Tên SP trong items phải khớp catalog
+- phan_hoi: 1 câu ngắn (vd: "Đã xóa Longden khỏi giỏ")
 
-Chỉ trả về JSON thuần (không markdown, không giải thích):
-{{"hanh_dong":"cap_nhat","phan_hoi":"...","khach":"tên khách","items":[{{"sp":"...","mau":"...","size":"...","sl":N}}]}}"""
+JSON (không markdown):
+{{"hanh_dong":"cap_nhat","phan_hoi":"...","khach":"{ten_khach}","items":[{{"sp":"...","mau":"...","size":"...","sl":N}}]}}"""
 
 
 def _gio_to_text(gio: list) -> str:
@@ -366,13 +404,9 @@ def hoi_thoai_lenh_nhanh(yeu_cau: YeuCauHoiThoai, db: Session = Depends(get_db))
 
     gio, canh_bao = _xu_ly_items(parsed.get("items") or [], san_phams, sp_map)
 
-    # Cảnh báo tồn kho thấp
-    for m in gio:
-        bt = bt_map.get(m.bien_the_id)
-        if bt is not None and 0 <= bt.stock < m.so_luong:
-            canh_bao.append(
-                f"{m.ten_san_pham} {m.mau_sac} {m.kich_co}: còn {bt.stock}, đặt {m.so_luong}"
-            )
+    # Giới hạn & cảnh báo tồn kho
+    gio, canh_bao_kho = _ap_dung_gioi_han_kho(gio, bt_map)
+    canh_bao.extend(canh_bao_kho)
 
     # Cảnh báo nợ khách
     if khach_hang_id:
@@ -403,6 +437,7 @@ def phan_tich_lenh_nhanh(yeu_cau: YeuCauLenhNhanh, db: Session = Depends(get_db)
 
     catalog = _xay_catalog(san_phams)
     sp_map = {_bo_dau(sp.name): sp for sp in san_phams}
+    bt_map = {v.id: v for sp in san_phams for v in sp.variants}
 
     parsed = _goi_groq(yeu_cau.lenh, catalog)
 
@@ -413,6 +448,9 @@ def phan_tich_lenh_nhanh(yeu_cau: YeuCauLenhNhanh, db: Session = Depends(get_db)
     gio, canh_bao = _xu_ly_items(
         parsed.get("items") or [], san_phams, sp_map
     )
+
+    gio, canh_bao_kho = _ap_dung_gioi_han_kho(gio, bt_map)
+    canh_bao.extend(canh_bao_kho)
 
     if not gio:
         canh_bao.append("Không tìm được sản phẩm — hãy kiểm tra lại lệnh")
