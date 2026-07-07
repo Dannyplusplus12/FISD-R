@@ -17,8 +17,8 @@ RUN flutter build web --release --pwa-strategy=offline-first
 FROM nginx:alpine
 
 COPY --from=builder /app/frontend-mobile/build/web /usr/share/nginx/html
-COPY frontend-mobile/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend-mobile/nginx.conf /etc/nginx/conf.d/default.conf.template
 
-EXPOSE 80
+EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD sh -c "envsubst '\$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
