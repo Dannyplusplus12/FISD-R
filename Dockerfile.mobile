@@ -1,0 +1,24 @@
+# Stage 1: Build Flutter web
+FROM ghcr.io/cirruslabs/flutter:stable AS builder
+
+WORKDIR /app
+
+# Copy shared package first (cached layer if unchanged)
+COPY packages/shared/ packages/shared/
+
+# Copy mobile app
+COPY frontend-mobile/ frontend-mobile/
+
+WORKDIR /app/frontend-mobile
+RUN flutter pub get
+RUN flutter build web --release --pwa-strategy=offline-first
+
+# Stage 2: Serve with nginx
+FROM nginx:alpine
+
+COPY --from=builder /app/frontend-mobile/build/web /usr/share/nginx/html
+COPY frontend-mobile/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

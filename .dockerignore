@@ -1,0 +1,7 @@
+backend/
+frontend-desktop/
+.git/
+.vs/
+references/
+scripts/
+*.md

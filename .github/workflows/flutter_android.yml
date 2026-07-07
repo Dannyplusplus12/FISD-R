@@ -6,7 +6,8 @@ on:
     branches:
       - master
     paths:
-      - 'frontend/**'
+      - 'frontend-desktop/**'
+      - 'packages/shared/**'
       - '.github/workflows/flutter_android.yml'
 
 jobs:
@@ -32,18 +33,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
+          cd frontend-desktop
           flutter pub get
 
       - name: Build APK (release, unsigned)
         run: |
-          cd frontend
+          cd frontend-desktop
           flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: fisd-android-apk-${{ github.sha }}
-          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          path: frontend-desktop/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
           if-no-files-found: error
