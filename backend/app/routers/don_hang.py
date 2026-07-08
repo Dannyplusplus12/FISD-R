@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import s3
 from app.core.config import settings
 from app.database import get_db, SessionLocal
-from app.models import BienThe, ChiTietDon, DonHang, KhachHang, KhuVuc, NhanVien
+from app.models import BienThe, ChiTietDon, DonHang, KhachHang, KhuVuc, NhanVien, ViTriBienThe, KhoHang, SanPham
 from app.schemas.don_hang import (
     CapNhatNgayDon, XacNhanGiaoItem, XacNhanLocalAnh,
     YeuCauGiaoHang, YeuCauNhanDon, YeuCauThanhToan, YeuCauXacNhanGiao,
@@ -601,6 +601,44 @@ def lay_don_quan_ly(limit: int = 200, db: Session = Depends(get_db)):
         return {"data": [_serialize_don(don) for don in don_hang], "count": len(don_hang)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/don-hang/{don_id}/soan")
+def chi_tiet_soan_kho(don_id: int, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id, DonHang.status == "assigned").first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Đơn không tồn tại hoặc chưa ở trạng thái soạn")
+    items = []
+    for ct in don.chi_tiet:
+        image, warehouses = "", []
+        if ct.variant_id:
+            bt = db.query(BienThe).filter(BienThe.id == ct.variant_id).first()
+            if bt and getattr(bt, "san_pham", None):
+                sp = bt.san_pham
+                key = sp.image_path or ""
+                from app.routers.san_pham import _la_s3_key
+                from app import s3 as _s3
+                image = _s3.presigned_url(key) if _la_s3_key(key) else ""
+            rows = db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == ct.variant_id).all()
+            for row in rows:
+                if row.kho_hang:
+                    warehouses.append({
+                        "id": row.kho_hang.id,
+                        "ten": row.kho_hang.ten,
+                        "vi_tri": row.kho_hang.vi_tri or "",
+                        "so_luong": int(row.so_luong or 0),
+                    })
+        items.append({
+            "order_item_id": ct.id,
+            "product_name": ct.product_name,
+            "variant_id": ct.variant_id,
+            "variant_info": ct.variant_info or "",
+            "quantity": int(ct.quantity or 0),
+            "price": int(ct.price or 0),
+            "image": image,
+            "warehouses": warehouses,
+        })
+    return {"id": don.id, "customer_name": don.customer_name or "Khách lẻ", "items": items}
 
 
 @router.get("/don-hang/{don_id}/trang-thai")

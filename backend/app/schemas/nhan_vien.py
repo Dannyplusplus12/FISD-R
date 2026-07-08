@@ -25,3 +25,9 @@ class CapNhatNhanVien(BaseModel):
 class DangNhapPin(BaseModel):
     pin: str
     requested_role: str = ""
+
+
+class DangKyDangNhap(BaseModel):
+    ten: str = ""
+    so_dien_thoai: str
+    pin: str

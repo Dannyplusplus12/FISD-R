@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.database import Base, engine, SessionLocal
-from app.routers import san_pham, nhan_vien, khach_hang, don_hang, bao_cao, lenh_nhanh
+from app.routers import san_pham, nhan_vien, khach_hang, don_hang, bao_cao, lenh_nhanh, kho_hang
 
 
 def _khoi_tao_db():
@@ -115,6 +115,7 @@ app.include_router(don_hang.router)
 app.include_router(don_hang.anh_router)
 app.include_router(bao_cao.router)
 app.include_router(lenh_nhanh.router)
+app.include_router(kho_hang.router)
 
 
 @app.get("/")

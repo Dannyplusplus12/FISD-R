@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import s3
 from app.database import get_db
-from app.models import SanPham, BienThe, ChiTietDon
+from app.models import SanPham, BienThe, ChiTietDon, ViTriBienThe, KhoHang
 from app.schemas.san_pham import TaoSanPham, CapNhatSanPham
 from app.utils import now_vn
 from app.core.config import settings
@@ -54,7 +54,15 @@ def lay_danh_sach(search: str = "", db: Session = Depends(get_db)):
             "image": s3.presigned_url(key) if _la_s3_key(key) else "",
             "price_range": khoang_gia,
             "variants": [
-                {"id": bt.id, "color": bt.color, "size": bt.size, "price": bt.price, "stock": bt.stock}
+                {
+                    "id": bt.id, "color": bt.color, "size": bt.size,
+                    "price": bt.price, "stock": bt.stock,
+                    "warehouses": [
+                        {"id": v.kho_hang.id, "ten": v.kho_hang.ten, "vi_tri": v.kho_hang.vi_tri or ""}
+                        for v in db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == bt.id).all()
+                        if v.kho_hang
+                    ],
+                }
                 for bt in sp.variants
             ],
         })

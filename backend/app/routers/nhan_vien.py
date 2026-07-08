@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import NhanVien, DonHang, LichSuNo, KhachHang
-from app.schemas.nhan_vien import TaoNhanVien, CapNhatNhanVien, DangNhapPin
+from app.schemas.nhan_vien import TaoNhanVien, CapNhatNhanVien, DangNhapPin, DangKyDangNhap
 from app.utils import now_vn, period_start_vn, parse_duong_dan_anh, trang_thai_don_vi
 
 router = APIRouter(prefix="/nhan-vien", tags=["Nhân viên"])
@@ -90,6 +90,34 @@ def _chuan_hoa_pin(pin_raw: str) -> str:
     if not (4 <= len(pin) <= 8):
         raise HTTPException(status_code=400, detail="PIN phải có 4-8 chữ số")
     return pin
+
+
+@auth_router.post("/dang-ky-hoac-dang-nhap")
+def dang_ky_hoac_dang_nhap(data: DangKyDangNhap, db: Session = Depends(get_db)):
+    so_dt = (data.so_dien_thoai or "").strip()
+    pin = (data.pin or "").strip()
+    if not so_dt:
+        raise HTTPException(status_code=400, detail="Số điện thoại không được để trống")
+    if not pin or not pin.isdigit() or not (4 <= len(pin) <= 8):
+        raise HTTPException(status_code=400, detail="PIN phải có 4-8 chữ số")
+    nv = db.query(NhanVien).filter(NhanVien.phone == so_dt).first()
+    if nv:
+        if nv.pin != pin:
+            raise HTTPException(status_code=401, detail="PIN không đúng")
+        if int(getattr(nv, "is_active", 1) or 0) != 1:
+            raise HTTPException(status_code=403, detail="Tài khoản đang bị khóa")
+        return {"id": nv.id, "name": nv.name, "phone": nv.phone, "role": nv.role, "pin": nv.pin}
+    ten = (data.ten or "").strip()
+    if not ten:
+        raise HTTPException(status_code=400, detail="Tên không được để trống")
+    if db.query(NhanVien).filter(NhanVien.pin == pin).first():
+        raise HTTPException(status_code=400, detail="PIN này đã được dùng, hãy chọn PIN khác")
+    nv = NhanVien(name=ten, phone=so_dt, role="picker", pin=pin, is_active=1,
+                  created_at=now_vn().strftime("%Y-%m-%d %H:%M"))
+    db.add(nv)
+    db.commit()
+    db.refresh(nv)
+    return {"id": nv.id, "name": nv.name, "phone": nv.phone, "role": nv.role, "pin": nv.pin}
 
 
 @auth_router.post("/dang-nhap-pin")

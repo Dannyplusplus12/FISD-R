@@ -25,6 +25,7 @@ class ApiEndpoints {
 
   // Xác thực
   static const String dangNhapPin = '/xac-thuc/dang-nhap-pin';
+  static const String dangKyHoacDangNhap = '/xac-thuc/dang-ky-hoac-dang-nhap';
 
   // Đơn hàng
   static const String donHangs = '/don-hang';
@@ -63,4 +64,25 @@ class ApiEndpoints {
   // Báo cáo / phân tích
   static const String baoCao = '/bao-cao';
   static const String baoCaoDonHangNgay = '/bao-cao/don-hang-ngay';
+
+  // Kho hàng
+  static const String khoHangs = '/kho-hang';
+  static String khoHang(int id) => '/kho-hang/$id';
+  static String sanPhamTrongKho(int khoId) => '/kho-hang/$khoId/san-pham';
+  static String bienTheVaoKho(int khoId, int btId) => '/kho-hang/$khoId/bien-the/$btId';
+  static String soLuongBienTheKho(int khoId, int btId) => '/kho-hang/$khoId/bien-the/$btId/so-luong';
+
+  // Biến thể
+  static const String bienThes = '/bien-the';
+  static String bienThe(int id) => '/bien-the/$id';
+  static String khoChoBienThe(int btId, int khoId) => '/bien-the/$btId/kho/$khoId';
+  static String khoChoSanPham(int spId, int khoId) => '/san-pham/$spId/kho/$khoId';
+
+  // Soạn kho
+  static String soanKho(int donId) => '/don-hang/$donId/soan';
+
+  // Sửa đơn cũ (picker)
+  static String ghiChuPickerDon(int id) => '/don-hang/$id/ghi-chu-picker';
+  static String themAnhDon(int id) => '/don-hang/$id/them-anh';
+  static String xoaAnhDon(int id) => '/don-hang/$id/xoa-anh';
 }

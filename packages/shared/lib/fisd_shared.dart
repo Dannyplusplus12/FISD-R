@@ -3,5 +3,6 @@ export 'models/don_hang.dart';
 export 'models/khach_hang.dart';
 export 'models/nhan_vien.dart';
 export 'models/bao_cao.dart';
+export 'models/kho_hang.dart';
 export 'api/endpoints.dart';
 export 'core/format_tien.dart';

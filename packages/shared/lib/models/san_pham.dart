@@ -1,9 +1,19 @@
+class ViTriKhoNho {
+  final int id;
+  final String ten;
+  final String viTri;
+  const ViTriKhoNho({required this.id, required this.ten, this.viTri = ''});
+  factory ViTriKhoNho.fromJson(Map<String, dynamic> j) => ViTriKhoNho(
+        id: j['id'] as int, ten: (j['ten'] ?? '').toString(), viTri: (j['vi_tri'] ?? '').toString());
+}
+
 class BienThe {
   final int? id;
   final String mauSac;
   final String kichCo;
   final int gia;
   final int tonKho;
+  final List<ViTriKhoNho> khos;
 
   const BienThe({
     this.id,
@@ -11,14 +21,18 @@ class BienThe {
     required this.kichCo,
     required this.gia,
     required this.tonKho,
+    this.khos = const [],
   });
 
   factory BienThe.fromJson(Map<String, dynamic> j) => BienThe(
         id: j['id'] as int?,
         mauSac: (j['color'] ?? '').toString(),
         kichCo: (j['size'] ?? '').toString(),
-        gia: (j['price'] ?? 0) as int,
-        tonKho: (j['stock'] ?? 0) as int,
+        gia: ((j['price'] ?? 0) as num).toInt(),
+        tonKho: ((j['stock'] ?? 0) as num).toInt(),
+        khos: (j['warehouses'] as List? ?? [])
+            .map((v) => ViTriKhoNho.fromJson(v as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
