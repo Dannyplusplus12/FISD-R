@@ -46,7 +46,8 @@ def lay_danh_sach(search: str = "", db: Session = Depends(get_db)):
         khoang_gia = "Hết hàng"
         if gia_list:
             mn, mx = min(gia_list), max(gia_list)
-            khoang_gia = f"{mn:,} - {mx:,}" if mn != mx else f"{mn:,}"
+            mn_k, mx_k = mn // 1000, mx // 1000
+            khoang_gia = f"{mn_k}k - {mx_k}k" if mn_k != mx_k else f"{mn_k}k"
         key = sp.image_path or ""
         ket_qua.append({
             "id": sp.id, "code": sp.code or sp.name, "name": sp.name,

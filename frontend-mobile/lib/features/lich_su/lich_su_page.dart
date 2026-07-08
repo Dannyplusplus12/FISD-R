@@ -140,7 +140,7 @@ class _DonCuCard extends StatelessWidget {
               ])),
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('${fmtTien(don["total_amount"])} đ',
+                Text(fmtTien(don["total_amount"]),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 Container(
@@ -266,7 +266,7 @@ class _ChiTietDonCuPageState extends ConsumerState<_ChiTietDonCuPage> {
         _Section(title: 'Thông tin đơn', child: Column(children: [
           _infoRow('Khách hàng', widget.don['customer_name'] ?? 'Khách lẻ'),
           _infoRow('Ngày giao', widget.don['delivered_at'] ?? widget.don['created_at'] ?? ''),
-          _infoRow('Tổng tiền', '${fmtTien(widget.don["total_amount"])} đ'),
+          _infoRow('Tổng tiền', fmtTien(widget.don["total_amount"])),
         ])),
         const SizedBox(height: 12),
         _Section(
@@ -278,7 +278,7 @@ class _ChiTietDonCuPageState extends ConsumerState<_ChiTietDonCuPage> {
                       child: Row(children: [
                         Expanded(
                             child: Text('${item["product_name"]} ${item["variant_info"] ?? ""}')),
-                        Text('×${item["quantity"]}  ${fmtTien(item["price"])} đ',
+                        Text('×${item["quantity"]}  ${fmtTien(item["price"])}',
                             style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                       ]),
                     ))

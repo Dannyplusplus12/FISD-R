@@ -69,7 +69,7 @@ class PhanTichPage extends ConsumerWidget {
               child: _MetricCard(
             icon: Icons.attach_money_outlined,
             label: 'Doanh thu',
-            value: data["total_revenue"] != null ? '${fmtTien(data["total_revenue"])}đ' : '—',
+            value: data["total_revenue"] != null ? fmtTien(data["total_revenue"]) : '—',
             color: AppColors.success,
           )),
         ]),

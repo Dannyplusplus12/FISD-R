@@ -69,5 +69,8 @@ Widget errorState(VoidCallback onRetry) => Center(
 
 String fmtTien(dynamic v) {
   final n = (v is int) ? v : int.tryParse(v.toString()) ?? 0;
-  return n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  final k = n ~/ 1000;
+  final r = n % 1000;
+  if (r == 0) return '${k}k';
+  return '${k}k';
 }

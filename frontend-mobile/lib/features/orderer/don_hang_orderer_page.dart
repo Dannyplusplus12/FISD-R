@@ -128,7 +128,7 @@ class _DonOrdererCard extends StatelessWidget {
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 8),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('${fmtTien(don["total_amount"])} đ',
+            Text(fmtTien(don["total_amount"]),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             if (status == 'assigned' && (don['assigned_picker_name'] ?? '').isNotEmpty)
               Text('Picker: ${don["assigned_picker_name"]}',

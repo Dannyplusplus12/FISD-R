@@ -186,7 +186,7 @@ class _KhachCard extends StatelessWidget {
               if (khach.no > 0)
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text('Nợ', style: const TextStyle(color: AppColors.danger, fontSize: 11)),
-                  Text('${fmtTien(khach.no)}đ',
+                  Text(fmtTien(khach.no),
                       style: const TextStyle(
                           color: AppColors.danger, fontWeight: FontWeight.bold, fontSize: 14)),
                 ]),
@@ -249,7 +249,7 @@ class _ChiTietKhachPage extends ConsumerWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Công nợ hiện tại', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             const SizedBox(height: 4),
-            Text('${fmtTien(khach.no)} đ',
+            Text(fmtTien(khach.no),
                 style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -361,13 +361,13 @@ class _NoCard extends StatelessWidget {
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(
-              '${tangNo ? "+" : ""}${fmtTien(item.thayDoi)}đ',
+              '${tangNo ? "+" : ""}${fmtTien(item.thayDoi)}',
               style: TextStyle(
                   color: tangNo ? AppColors.danger : AppColors.success,
                   fontWeight: FontWeight.bold,
                   fontSize: 14),
             ),
-            Text('Còn: ${fmtTien(item.soDuMoi)}đ',
+            Text('Còn: ${fmtTien(item.soDuMoi)}',
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
           ]),
           const SizedBox(width: 4),

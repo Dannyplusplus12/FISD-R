@@ -223,7 +223,7 @@ class _DonCard extends StatelessWidget {
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 10),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('${fmtTien(don["total_amount"])} đ',
+            Text(fmtTien(don["total_amount"]),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             FilledButton(
               onPressed: onTap,

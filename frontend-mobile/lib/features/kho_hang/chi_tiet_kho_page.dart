@@ -128,7 +128,7 @@ class _SanPhamCard extends ConsumerWidget {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(_tenBienThe(bt),
                         style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                    Text('${fmtTien(bt["don_gia"] as int)}đ',
+                    Text(fmtTien(bt["don_gia"] as int),
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   ])),
                   if (readOnly)
@@ -270,7 +270,7 @@ class _ChonBienThePageState extends ConsumerState<_ChonBienThePage> {
                   final dangThem = _dangThem.contains(bt.id!);
                   return ListTile(
                     title: Text(bt.tenHienThi),
-                    subtitle: Text('${fmtTien(bt.gia)}đ'),
+                    subtitle: Text(fmtTien(bt.gia)),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       SizedBox(
                         width: 60,

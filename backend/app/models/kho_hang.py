@@ -20,5 +20,6 @@ class ViTriBienThe(Base):
     id = Column(Integer, primary_key=True, index=True)
     ma_bien_the = Column("ma_bien_the", Integer, ForeignKey("bien_the.id", ondelete="CASCADE"))
     ma_kho = Column("ma_kho", Integer, ForeignKey("kho_hang.id", ondelete="CASCADE"))
+    so_luong = Column("so_luong", Integer, default=0)
 
     kho_hang = relationship("KhoHang", back_populates="vi_tri_bien_thes")

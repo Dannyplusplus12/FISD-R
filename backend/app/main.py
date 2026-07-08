@@ -13,6 +13,7 @@ def _khoi_tao_db():
         Base.metadata.create_all(bind=engine)
         _them_cot_neu_thieu()
         _seed_mac_dinh()
+        _seed_kho_hang()
     except Exception as e:
         print(f"Warning: DB init skipped — {e}")
 
@@ -38,9 +39,9 @@ def _them_cot_sqlite(db):
 
 
 def _them_cot_postgres(db):
-    # Thêm cột mới vào đây khi cần mở rộng schema
-    # Ví dụ: ("don_hang", "ten_cot_moi", "TEXT DEFAULT ''")
-    alterations = []
+    alterations = [
+        ("vi_tri_bien_the", "so_luong", "INTEGER DEFAULT 0"),
+    ]
     for table, col, col_type in alterations:
         try:
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}"))
@@ -84,6 +85,35 @@ def _seed_mac_dinh():
         db.close()
 
 
+def _seed_kho_hang():
+    from app.models import KhoHang, BienThe, ViTriBienThe
+    db = SessionLocal()
+    try:
+        existing = {k.ten for k in db.query(KhoHang).all()}
+        for i in range(1, 5):
+            if f"Kho {i}" not in existing:
+                db.add(KhoHang(ten=f"Kho {i}", vi_tri="", ghi_chu=""))
+        db.commit()
+        kho1 = db.query(KhoHang).filter(KhoHang.ten == "Kho 1").first()
+        if not kho1:
+            return
+        bts = db.query(BienThe).all()
+        for bt in bts:
+            has = db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == bt.id).first()
+            if not has:
+                if not bt.color:
+                    bt.color = "Đen"
+                if not bt.size:
+                    bt.size = "40"
+                db.add(ViTriBienThe(ma_bien_the=bt.id, ma_kho=kho1.id, so_luong=500))
+        db.commit()
+    except Exception as e:
+        print(f"Warning: kho hang seed skipped — {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _khoi_tao_db()
@@ -116,6 +146,35 @@ app.include_router(don_hang.anh_router)
 app.include_router(bao_cao.router)
 app.include_router(lenh_nhanh.router)
 app.include_router(kho_hang.router)
+
+
+@app.post("/admin/khoi-tao-kho")
+def admin_khoi_tao_kho():
+    """Reset toàn bộ bien_the + vi_tri_bien_the, tạo 4 kho, mỗi sp 1 biến thể Đen/40/500."""
+    from app.models import KhoHang, BienThe, ViTriBienThe, SanPham
+    db = SessionLocal()
+    try:
+        db.query(ViTriBienThe).delete(synchronize_session=False)
+        db.query(BienThe).delete(synchronize_session=False)
+        db.commit()
+        for i in range(1, 5):
+            if not db.query(KhoHang).filter(KhoHang.ten == f"Kho {i}").first():
+                db.add(KhoHang(ten=f"Kho {i}", vi_tri="", ghi_chu=""))
+        db.commit()
+        kho1 = db.query(KhoHang).filter(KhoHang.ten == "Kho 1").first()
+        sps = db.query(SanPham).all()
+        for sp in sps:
+            bt = BienThe(product_id=sp.id, color="Đen", size="40", price=0, stock=500)
+            db.add(bt)
+            db.flush()
+            db.add(ViTriBienThe(ma_bien_the=bt.id, ma_kho=kho1.id, so_luong=500))
+        db.commit()
+        return {"status": "ok", "san_pham": len(sps), "kho_1_id": kho1.id}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "detail": str(e)}
+    finally:
+        db.close()
 
 
 @app.get("/")

@@ -284,7 +284,7 @@ class _TaoDonPageState extends ConsumerState<TaoDonPage> {
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     const Icon(Icons.shopping_cart_outlined),
                     const SizedBox(width: 10),
-                    Text('$_soMon món  •  ${fmtTien(_tongTien)} đ',
+                    Text('$_soMon món  •  ${fmtTien(_tongTien)}',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     const SizedBox(width: 4),
                     const Icon(Icons.chevron_right),
@@ -348,7 +348,7 @@ class _SanPhamCard extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(ten.isEmpty ? 'Mặc định' : ten,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                Text('${fmtTien((bt["price"] as num).toInt())}đ  •  Còn $stock',
+                Text('${fmtTien((bt["price"] as num).toInt())}  •  Còn $stock',
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               ])),
               stock == 0
@@ -465,7 +465,7 @@ class _ChonKhachSheetState extends State<_ChonKhachSheet> {
                 title: Text(k['name'] as String, style: const TextStyle(fontWeight: FontWeight.w500)),
                 subtitle: Text('${k["phone"] ?? ""}  ${k["area_name"] ?? ""}'),
                 trailing: no > 0
-                    ? Text('Nợ ${fmtTien(no)}đ',
+                    ? Text('Nợ ${fmtTien(no)}',
                         style: const TextStyle(color: AppColors.danger, fontSize: 12))
                     : null,
                 onTap: () => Navigator.pop(context, k),
@@ -549,7 +549,7 @@ class _GioHangSheetState extends State<_GioHangSheet> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(item.productName,
                         style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                    Text('${item.variantInfo}  •  ${fmtTien(item.gia)}đ',
+                    Text('${item.variantInfo}  •  ${fmtTien(item.gia)}',
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   ])),
                   Row(children: [
@@ -579,7 +579,7 @@ class _GioHangSheetState extends State<_GioHangSheet> {
           child: Column(children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Tổng tiền', style: TextStyle(fontSize: 15, color: AppColors.textSecondary)),
-              Text('${fmtTien(widget.tongTien)} đ',
+              Text(fmtTien(widget.tongTien),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ]),
             const SizedBox(height: 12),
