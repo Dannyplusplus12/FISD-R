@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'khach_hang_orderer_provider.dart';
 
 class KhachHangOrdererPage extends ConsumerStatefulWidget {
@@ -22,6 +23,23 @@ class _KhachHangOrdererPageState extends ConsumerState<KhachHangOrdererPage> {
     final state = ref.watch(khachHangOrdererProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.divider),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
+          ),
+        ],
+      ),
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),

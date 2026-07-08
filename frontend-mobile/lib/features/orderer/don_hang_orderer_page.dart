@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'don_hang_orderer_provider.dart';
 import 'tao_don_page.dart';
 
@@ -27,6 +28,11 @@ class DonHangOrdererPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_outlined),
             onPressed: () => ref.invalidate(donHangOrdererProvider(phien.id)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
           ),
         ],
       ),

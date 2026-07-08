@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'package:fisd_shared/fisd_shared.dart';
 
 final _thongKeProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
@@ -32,6 +33,11 @@ class PhanTichPage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_outlined),
             onPressed: () => ref.invalidate(_thongKeProvider),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
           ),
         ],
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import '../kho_hang/kho_hang_provider.dart';
 import '../kho_hang/chi_tiet_kho_page.dart';
 import 'san_pham_orderer_page.dart';
@@ -41,6 +42,13 @@ class _KhoOrdererPageState extends ConsumerState<KhoOrdererPage>
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(49),
           child: Column(children: [

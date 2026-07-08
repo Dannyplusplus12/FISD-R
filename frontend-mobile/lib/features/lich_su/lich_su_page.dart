@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'lich_su_provider.dart';
 
 const _boLocNhan = ['Hôm nay', 'Tuần', 'Tháng', 'Quý', 'Tất cả'];
@@ -32,6 +33,13 @@ class _LichSuPageState extends ConsumerState<LichSuPage> {
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: AppColors.divider),

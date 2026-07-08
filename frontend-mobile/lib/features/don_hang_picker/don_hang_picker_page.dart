@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'don_hang_picker_provider.dart';
 import 'soan_kho_page.dart';
 
@@ -38,6 +39,13 @@ class _DonHangPickerPageState extends ConsumerState<DonHangPickerPage>
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: 'Đăng xuất',
+            onPressed: () => ref.read(xacThucProvider.notifier).dangXuat(),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(49),
           child: Column(children: [
