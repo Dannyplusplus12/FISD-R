@@ -271,36 +271,32 @@ class _BienTheForm extends StatefulWidget {
 }
 
 class _BienTheFormState extends State<_BienTheForm> {
-  late final TextEditingController _mauCtrl;
-  late final TextEditingController _coCtrl;
-  late final TextEditingController _giaCtrl;
-  late final TextEditingController _slCtrl;
+  TextEditingController? _mauCtrl;
+  TextEditingController? _coCtrl;
+  TextEditingController? _giaCtrl;
+  TextEditingController? _slCtrl;
 
-  @override
-  void initState() {
-    super.initState();
-    _mauCtrl = TextEditingController(text: widget.data.mauSac);
-    _coCtrl = TextEditingController(text: widget.data.kichCo);
-    _giaCtrl = TextEditingController(
-        text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
-    _slCtrl = TextEditingController(
-        text: widget.data.tonKho > 0 ? '${widget.data.tonKho}' : '');
-  }
+  TextEditingController get mauCtrl => _mauCtrl ??= TextEditingController(text: widget.data.mauSac);
+  TextEditingController get coCtrl => _coCtrl ??= TextEditingController(text: widget.data.kichCo);
+  TextEditingController get giaCtrl => _giaCtrl ??= TextEditingController(
+      text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
+  TextEditingController get slCtrl => _slCtrl ??= TextEditingController(
+      text: widget.data.tonKho > 0 ? '${widget.data.tonKho}' : '');
 
   @override
   void dispose() {
-    _mauCtrl.dispose();
-    _coCtrl.dispose();
-    _giaCtrl.dispose();
-    _slCtrl.dispose();
+    _mauCtrl?.dispose();
+    _coCtrl?.dispose();
+    _giaCtrl?.dispose();
+    _slCtrl?.dispose();
     super.dispose();
   }
 
   void _sync() {
-    widget.data.mauSac = _mauCtrl.text.trim();
-    widget.data.kichCo = _coCtrl.text.trim();
-    widget.data.gia = (int.tryParse(_giaCtrl.text) ?? 0) * 1000;
-    widget.data.tonKho = int.tryParse(_slCtrl.text) ?? 0;
+    widget.data.mauSac = mauCtrl.text.trim();
+    widget.data.kichCo = coCtrl.text.trim();
+    widget.data.gia = (int.tryParse(giaCtrl.text) ?? 0) * 1000;
+    widget.data.tonKho = int.tryParse(slCtrl.text) ?? 0;
   }
 
   InputDecoration _deco(String label, {String? suffix}) => InputDecoration(
@@ -335,14 +331,14 @@ class _BienTheFormState extends State<_BienTheForm> {
         Row(children: [
           Expanded(
               child: TextField(
-                  controller: _mauCtrl,
+                  controller: mauCtrl,
                   onChanged: (_) => _sync(),
                   decoration: _deco('Màu sắc'))),
           const SizedBox(width: 8),
           SizedBox(
             width: 90,
             child: TextField(
-                controller: _coCtrl,
+                controller: coCtrl,
                 onChanged: (_) => _sync(),
                 decoration: _deco('Size')),
           ),
@@ -351,7 +347,7 @@ class _BienTheFormState extends State<_BienTheForm> {
         Row(children: [
           Expanded(
             child: TextField(
-              controller: _giaCtrl,
+              controller: giaCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => _sync(),
@@ -362,7 +358,7 @@ class _BienTheFormState extends State<_BienTheForm> {
           SizedBox(
             width: 110,
             child: TextField(
-              controller: _slCtrl,
+              controller: slCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => _sync(),

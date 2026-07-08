@@ -273,6 +273,7 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
               controller: ctrl,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: _bienThes.asMap().entries.map((e) => _BienTheRow(
+                key: ValueKey(e.value['id'] ?? e.key),
                 bt: e.value,
                 khoId: widget.khoId,
                 onSLChanged: (newSL) =>
@@ -341,6 +342,7 @@ class _BienTheRow extends ConsumerStatefulWidget {
   final VoidCallback onChanged;
 
   const _BienTheRow({
+    super.key,
     required this.bt,
     required this.khoId,
     required this.onSLChanged,
