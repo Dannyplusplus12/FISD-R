@@ -9,8 +9,7 @@ import 'kho_hang_provider.dart';
 
 class ChiTietKhoPage extends ConsumerStatefulWidget {
   final KhoHang kho;
-  final bool canManage; // true = orderer (full CRUD), false = picker (chỉ sửa số lượng)
-  const ChiTietKhoPage({super.key, required this.kho, this.canManage = false});
+  const ChiTietKhoPage({super.key, required this.kho});
 
   @override
   ConsumerState<ChiTietKhoPage> createState() => _ChiTietKhoPageState();
@@ -18,6 +17,8 @@ class ChiTietKhoPage extends ConsumerStatefulWidget {
 
 class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
   String _search = '';
+
+  void _refresh() => ref.invalidate(sanPhamTrongKhoProvider(widget.kho.id));
 
   @override
   Widget build(BuildContext context) {
@@ -36,32 +37,29 @@ class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.divider),
-        ),
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: AppColors.divider)),
       ),
-      floatingActionButton: widget.canManage
-          ? FloatingActionButton.extended(
-              onPressed: () => _themHang(context),
-              backgroundColor: AppColors.primary,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Thêm hàng', style: TextStyle(color: Colors.white)),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _themHang(context),
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Thêm hàng', style: TextStyle(color: Colors.white)),
+      ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) =>
-            errorState(() => ref.invalidate(sanPhamTrongKhoProvider(widget.kho.id))),
+        error: (_, __) => errorState(_refresh),
         data: (sanPhams) {
           if (sanPhams.isEmpty) {
             return emptyState(Icons.inventory_2_outlined, 'Kho trống',
-                sub: widget.canManage ? 'Nhấn + để thêm hàng vào kho' : null);
+                sub: 'Nhấn + để thêm hàng vào kho');
           }
           final filtered = _search.isEmpty
               ? sanPhams
               : sanPhams
-                  .where((sp) =>
-                      (sp['ten'] as String).toLowerCase().contains(_search.toLowerCase()))
+                  .where((sp) => (sp['ten'] as String)
+                      .toLowerCase()
+                      .contains(_search.toLowerCase()))
                   .toList();
           return Column(children: [
             Padding(
@@ -73,8 +71,7 @@ class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
             ),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () async =>
-                    ref.invalidate(sanPhamTrongKhoProvider(widget.kho.id)),
+                onRefresh: () async => _refresh(),
                 child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -87,8 +84,7 @@ class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
                   itemBuilder: (_, i) => _SanPhamTile(
                     sp: filtered[i],
                     khoId: widget.kho.id,
-                    canManage: widget.canManage,
-                    onChanged: () => ref.invalidate(sanPhamTrongKhoProvider(widget.kho.id)),
+                    onChanged: _refresh,
                   ),
                 ),
               ),
@@ -108,7 +104,7 @@ class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _ChonHangSheet(khoId: widget.kho.id, allSps: allSps),
     );
-    ref.invalidate(sanPhamTrongKhoProvider(widget.kho.id));
+    _refresh();
   }
 }
 
@@ -117,15 +113,9 @@ class _ChiTietKhoPageState extends ConsumerState<ChiTietKhoPage> {
 class _SanPhamTile extends StatelessWidget {
   final Map<String, dynamic> sp;
   final int khoId;
-  final bool canManage;
   final VoidCallback onChanged;
 
-  const _SanPhamTile({
-    required this.sp,
-    required this.khoId,
-    required this.canManage,
-    required this.onChanged,
-  });
+  const _SanPhamTile({required this.sp, required this.khoId, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +125,12 @@ class _SanPhamTile extends StatelessWidget {
     final imageUrl = sp['image'] as String? ?? '';
 
     return GestureDetector(
-      onTap: () => _moSheet(context),
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _SanPhamSheet(sp: sp, khoId: khoId, onChanged: onChanged),
+      ),
       child: Container(
         decoration: AppDeco.card(),
         clipBehavior: Clip.antiAlias,
@@ -184,20 +179,6 @@ class _SanPhamTile extends StatelessWidget {
       color: AppColors.background,
       child: const Center(
           child: Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.divider)));
-
-  void _moSheet(BuildContext ctx) {
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _SanPhamSheet(
-        sp: sp,
-        khoId: khoId,
-        canManage: canManage,
-        onChanged: onChanged,
-      ),
-    );
-  }
 }
 
 // ── Bottom sheet sản phẩm ─────────────────────────────────────────────────────
@@ -205,15 +186,9 @@ class _SanPhamTile extends StatelessWidget {
 class _SanPhamSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> sp;
   final int khoId;
-  final bool canManage;
   final VoidCallback onChanged;
 
-  const _SanPhamSheet({
-    required this.sp,
-    required this.khoId,
-    required this.canManage,
-    required this.onChanged,
-  });
+  const _SanPhamSheet({required this.sp, required this.khoId, required this.onChanged});
 
   @override
   ConsumerState<_SanPhamSheet> createState() => _SanPhamSheetState();
@@ -252,7 +227,6 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
               decoration: BoxDecoration(
                   color: AppColors.divider, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 14),
-          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
@@ -268,23 +242,38 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
               Expanded(
                   child: Text(ten,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
-              if (widget.canManage)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-                  tooltip: 'Sửa sản phẩm',
-                  onPressed: () => _suaSanPham(context, spId),
-                ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (v) {
+                  if (v == 'sua_sp') _suaSanPham(context, spId);
+                  if (v == 'them_bt') _themBienThe(context, spId);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'sua_sp',
+                      child: Row(children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Sửa sản phẩm'),
+                      ])),
+                  const PopupMenuItem(value: 'them_bt',
+                      child: Row(children: [
+                        Icon(Icons.add_circle_outline, size: 18),
+                        SizedBox(width: 8),
+                        Text('Thêm biến thể'),
+                      ])),
+                ],
+              ),
             ]),
           ),
           const SizedBox(height: 12),
           Container(height: 1, color: AppColors.divider),
           Expanded(
-            child: ListView(controller: ctrl, padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                children: [
-              ..._bienThes.asMap().entries.map((e) => _BienTheRow(
+            child: ListView(
+              controller: ctrl,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: _bienThes.asMap().entries.map((e) => _BienTheRow(
                 bt: e.value,
                 khoId: widget.khoId,
-                canManage: widget.canManage,
                 onSLChanged: (newSL) =>
                     setState(() => _bienThes[e.key] = {...e.value, 'so_luong': newSL}),
                 onEdited: (updated) =>
@@ -294,21 +283,8 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
                   widget.onChanged();
                 },
                 onChanged: widget.onChanged,
-              )),
-              if (widget.canManage) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _themBienThe(context, spId),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Thêm biến thể'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                ),
-              ],
-            ]),
+              )).toList(),
+            ),
           ),
         ]),
       ),
@@ -317,8 +293,10 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
 
   Widget _thumb() => Container(
       width: 54, height: 54,
-      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(10)),
-      child: const Icon(Icons.inventory_2_outlined, color: AppColors.textSecondary, size: 24));
+      decoration:
+          BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(10)),
+      child:
+          const Icon(Icons.inventory_2_outlined, color: AppColors.textSecondary, size: 24));
 
   Future<void> _suaSanPham(BuildContext ctx, int spId) async {
     final allSps = await ref.read(khoHangRepoProvider).laySanPhams();
@@ -356,7 +334,6 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
 class _BienTheRow extends ConsumerWidget {
   final Map<String, dynamic> bt;
   final int khoId;
-  final bool canManage;
   final ValueChanged<int> onSLChanged;
   final ValueChanged<Map<String, dynamic>> onEdited;
   final VoidCallback onXoa;
@@ -365,7 +342,6 @@ class _BienTheRow extends ConsumerWidget {
   const _BienTheRow({
     required this.bt,
     required this.khoId,
-    required this.canManage,
     required this.onSLChanged,
     required this.onEdited,
     required this.onXoa,
@@ -375,16 +351,16 @@ class _BienTheRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final soLuong = bt['so_luong'] as int;
-    final ten = _ten();
-    final gia = fmtTien(bt['don_gia'] as int);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(ten, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            Text(gia, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            Text(_ten(),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text(fmtTien(bt['don_gia'] as int),
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ]),
         ),
         _nut(Icons.remove, () => _doi(ref, soLuong, -1)),
@@ -397,18 +373,28 @@ class _BienTheRow extends ConsumerWidget {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ),
         _nut(Icons.add, () => _doi(ref, soLuong, 1)),
-        if (canManage) ...[
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => _suaBienThe(context, ref),
-            child: const Icon(Icons.edit_outlined, color: AppColors.info, size: 20),
-          ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => _xoaBienThe(context, ref),
-            child: const Icon(Icons.delete_outline, color: AppColors.danger, size: 20),
-          ),
-        ],
+        const SizedBox(width: 4),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
+          onSelected: (v) {
+            if (v == 'sua') _suaBienThe(context, ref);
+            if (v == 'xoa') _xoaBienThe(context, ref);
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'sua',
+                child: Row(children: [
+                  Icon(Icons.edit_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Sửa biến thể'),
+                ])),
+            const PopupMenuItem(value: 'xoa',
+                child: Row(children: [
+                  Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                  SizedBox(width: 8),
+                  Text('Xóa', style: TextStyle(color: AppColors.danger)),
+                ])),
+          ],
+        ),
       ]),
     );
   }
@@ -440,7 +426,7 @@ class _BienTheRow extends ConsumerWidget {
       context: ctx,
       builder: (_) => AlertDialog(
         title: const Text('Xóa biến thể?'),
-        content: Text('Xóa "$_ten()" hoàn toàn khỏi hệ thống?'),
+        content: Text('Xóa "${_ten()}" hoàn toàn khỏi hệ thống?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
           TextButton(
@@ -480,13 +466,9 @@ class _BienTheRow extends ConsumerWidget {
 class _FormBienTheDialog extends StatefulWidget {
   final String initColor;
   final String initSize;
-  final int initPrice;
+  final int initPrice; // VND
 
-  const _FormBienTheDialog({
-    this.initColor = '',
-    this.initSize = '',
-    this.initPrice = 0,
-  });
+  const _FormBienTheDialog({this.initColor = '', this.initSize = '', this.initPrice = 0});
 
   @override
   State<_FormBienTheDialog> createState() => _FormBienTheDialogState();
@@ -497,11 +479,15 @@ class _FormBienTheDialogState extends State<_FormBienTheDialog> {
   late final TextEditingController _sizeCtrl;
   late final TextEditingController _priceCtrl;
   late final TextEditingController _slCtrl;
+
+  bool get _isNew => widget.initPrice == 0 && widget.initColor.isEmpty;
+
   @override
   void initState() {
     super.initState();
     _colorCtrl = TextEditingController(text: widget.initColor);
     _sizeCtrl = TextEditingController(text: widget.initSize);
+    // Hiển thị theo đơn vị k
     _priceCtrl = TextEditingController(
         text: widget.initPrice > 0 ? '${widget.initPrice ~/ 1000}' : '');
     _slCtrl = TextEditingController(text: '0');
@@ -516,8 +502,6 @@ class _FormBienTheDialogState extends State<_FormBienTheDialog> {
     super.dispose();
   }
 
-  bool get _isNew => widget.initColor.isEmpty && widget.initSize.isEmpty && widget.initPrice == 0;
-
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -525,19 +509,21 @@ class _FormBienTheDialogState extends State<_FormBienTheDialog> {
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(
           controller: _colorCtrl,
-          decoration: const InputDecoration(labelText: 'Màu sắc', hintText: 'vd: Đen, Trắng'),
+          decoration:
+              const InputDecoration(labelText: 'Màu sắc', hintText: 'vd: Đen, Trắng'),
         ),
         const SizedBox(height: 10),
         TextField(
           controller: _sizeCtrl,
-          decoration: const InputDecoration(labelText: 'Size', hintText: 'vd: 40, 41, 42'),
+          decoration: const InputDecoration(labelText: 'Size', hintText: 'vd: 40, 41'),
         ),
         const SizedBox(height: 10),
         TextField(
           controller: _priceCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Giá (k)', suffixText: 'k'),
+          decoration: const InputDecoration(
+              labelText: 'Giá', suffixText: 'k', hintText: 'vd: 90'),
         ),
         if (_isNew) ...[
           const SizedBox(height: 10),
@@ -551,20 +537,16 @@ class _FormBienTheDialogState extends State<_FormBienTheDialog> {
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
-        TextButton(
-          onPressed: _luu,
-          child: const Text('Lưu'),
-        ),
+        TextButton(onPressed: _luu, child: const Text('Lưu')),
       ],
     );
   }
 
   void _luu() {
-    final priceK = int.tryParse(_priceCtrl.text) ?? 0;
     Navigator.pop(context, {
       'color': _colorCtrl.text.trim(),
       'size': _sizeCtrl.text.trim(),
-      'price': priceK * 1000,
+      'price': (int.tryParse(_priceCtrl.text) ?? 0) * 1000, // k → VND
       'so_luong': int.tryParse(_slCtrl.text) ?? 0,
     });
   }
@@ -638,8 +620,8 @@ class _ChonHangSheetState extends ConsumerState<_ChonHangSheet> {
                             keyboardType: TextInputType.number,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             decoration: AppDeco.input('SL'),
-                            onChanged: (v) =>
-                                setState(() => _soLuongMap[bt.id!] = int.tryParse(v) ?? 0),
+                            onChanged: (v) => setState(
+                                () => _soLuongMap[bt.id!] = int.tryParse(v) ?? 0),
                           ),
                         ),
                         const SizedBox(width: 8),

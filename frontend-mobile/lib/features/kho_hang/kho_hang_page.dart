@@ -7,8 +7,7 @@ import 'kho_hang_provider.dart';
 import 'chi_tiet_kho_page.dart';
 
 class KhoHangPage extends ConsumerWidget {
-  final bool canManage; // true = orderer (thêm/sửa/xóa kho), false = picker
-  const KhoHangPage({super.key, this.canManage = false});
+  const KhoHangPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,20 +31,18 @@ class KhoHangPage extends ConsumerWidget {
           child: Container(height: 1, color: AppColors.divider),
         ),
       ),
-      floatingActionButton: canManage
-          ? FloatingActionButton(
-              onPressed: () => _themKho(context, ref),
-              backgroundColor: AppColors.primary,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _themKho(context, ref),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => errorState(() => ref.invalidate(danhSachKhoProvider)),
         data: (khos) {
           if (khos.isEmpty) {
             return emptyState(Icons.store_outlined, 'Chưa có kho nào',
-                sub: canManage ? 'Nhấn + để thêm kho mới' : null);
+                sub: 'Nhấn + để thêm kho mới');
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(danhSachKhoProvider),
@@ -54,7 +51,6 @@ class KhoHangPage extends ConsumerWidget {
               itemCount: khos.length,
               itemBuilder: (_, i) => _KhoCard(
                 kho: khos[i],
-                canManage: canManage,
                 onTap: () => _moChiTiet(context, ref, khos[i]),
                 onSua: () => _suaKho(context, ref, khos[i]),
                 onXoa: () => _xoaKho(context, ref, khos[i]),
@@ -67,8 +63,7 @@ class KhoHangPage extends ConsumerWidget {
   }
 
   Future<void> _moChiTiet(BuildContext ctx, WidgetRef ref, KhoHang kho) async {
-    await Navigator.push(
-        ctx, MaterialPageRoute(builder: (_) => ChiTietKhoPage(kho: kho, canManage: canManage)));
+    await Navigator.push(ctx, MaterialPageRoute(builder: (_) => ChiTietKhoPage(kho: kho)));
     ref.invalidate(danhSachKhoProvider);
   }
 
@@ -91,7 +86,8 @@ class KhoHangPage extends ConsumerWidget {
               title: const Text('Xóa kho?'),
               content: Text('Xóa kho "${kho.ten}"? Các biến thể sẽ bị hủy liên kết.'),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: const Text('Xóa', style: TextStyle(color: AppColors.danger))),
@@ -106,14 +102,12 @@ class KhoHangPage extends ConsumerWidget {
 
 class _KhoCard extends StatelessWidget {
   final KhoHang kho;
-  final bool canManage;
   final VoidCallback onTap;
   final VoidCallback onSua;
   final VoidCallback onXoa;
 
   const _KhoCard({
     required this.kho,
-    required this.canManage,
     required this.onTap,
     required this.onSua,
     required this.onXoa,
@@ -134,8 +128,7 @@ class _KhoCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 44, height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
@@ -145,37 +138,36 @@ class _KhoCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(kho.ten, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(kho.ten,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 if (kho.viTri.isNotEmpty)
                   Text(kho.viTri,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      style:
+                          const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               ])),
-              if (canManage)
-                PopupMenuButton<String>(
-                  onSelected: (v) {
-                    if (v == 'sua') onSua();
-                    if (v == 'xoa') onXoa();
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                        value: 'sua',
-                        child: Row(children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('Sửa')
-                        ])),
-                    const PopupMenuItem(
-                        value: 'xoa',
-                        child: Row(children: [
-                          Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
-                          SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: AppColors.danger))
-                        ])),
-                  ],
-                  child: const Icon(Icons.more_vert, color: AppColors.textSecondary),
-                )
-              else if (!canManage)
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'sua') onSua();
+                  if (v == 'xoa') onXoa();
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                      value: 'sua',
+                      child: Row(children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Sửa')
+                      ])),
+                  const PopupMenuItem(
+                      value: 'xoa',
+                      child: Row(children: [
+                        Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                        SizedBox(width: 8),
+                        Text('Xóa', style: TextStyle(color: AppColors.danger))
+                      ])),
+                ],
+                child: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+              ),
             ]),
           ),
         ),
@@ -230,7 +222,8 @@ class _FormKhoState extends ConsumerState<_FormKho> {
               Text(widget.edit == null ? 'Thêm kho mới' : 'Sửa kho',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const Spacer(),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              IconButton(
+                  icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ]),
             const SizedBox(height: 16),
             TextField(
@@ -239,7 +232,8 @@ class _FormKhoState extends ConsumerState<_FormKho> {
             const SizedBox(height: 10),
             TextField(
                 controller: _viTriCtrl,
-                decoration: AppDeco.input('Vị trí', icon: Icons.location_on_outlined)),
+                decoration:
+                    AppDeco.input('Vị trí', icon: Icons.location_on_outlined)),
             const SizedBox(height: 10),
             TextField(
                 controller: _ghiChuCtrl,
@@ -250,8 +244,7 @@ class _FormKhoState extends ConsumerState<_FormKho> {
               style: AppDeco.primaryBtn,
               child: _loading
                   ? const SizedBox(
-                      height: 20,
-                      width: 20,
+                      height: 20, width: 20,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Text('Lưu',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -269,7 +262,8 @@ class _FormKhoState extends ConsumerState<_FormKho> {
       await ref.read(khoHangActionProvider.notifier).capNhatKho(
           widget.edit!.id, ten, _viTriCtrl.text.trim(), _ghiChuCtrl.text.trim());
     } else {
-      await ref.read(khoHangActionProvider.notifier)
+      await ref
+          .read(khoHangActionProvider.notifier)
           .taoKho(ten, _viTriCtrl.text.trim(), _ghiChuCtrl.text.trim());
     }
     if (mounted) Navigator.pop(context);

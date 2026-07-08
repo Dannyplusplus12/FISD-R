@@ -268,7 +268,7 @@ class _BienTheFormState extends State<_BienTheForm> {
     super.initState();
     _mauCtrl = TextEditingController(text: widget.data.mauSac);
     _coCtrl = TextEditingController(text: widget.data.kichCo);
-    _giaCtrl = TextEditingController(text: widget.data.gia > 0 ? '${widget.data.gia}' : '');
+    _giaCtrl = TextEditingController(text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
     _slCtrl = TextEditingController(text: '${widget.data.tonKho}');
   }
 
@@ -284,7 +284,7 @@ class _BienTheFormState extends State<_BienTheForm> {
   void _sync() {
     widget.data.mauSac = _mauCtrl.text.trim();
     widget.data.kichCo = _coCtrl.text.trim();
-    widget.data.gia = int.tryParse(_giaCtrl.text) ?? 0;
+    widget.data.gia = (int.tryParse(_giaCtrl.text) ?? 0) * 1000;
     widget.data.tonKho = int.tryParse(_slCtrl.text) ?? 0;
   }
 
@@ -327,7 +327,7 @@ class _BienTheFormState extends State<_BienTheForm> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (_) => _sync(),
-                  decoration: AppDeco.input('Giá (đ) *', icon: Icons.attach_money_outlined))),
+                  decoration: const InputDecoration(labelText: 'Giá (k) *', suffixText: 'k'))),
           const SizedBox(width: 8),
           Expanded(
               child: TextField(

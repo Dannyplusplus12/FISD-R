@@ -6,6 +6,6 @@ class KhoOrdererPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const KhoHangPage(canManage: true);
+    return const KhoHangPage();
   }
 }
