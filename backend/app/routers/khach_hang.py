@@ -4,9 +4,10 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import KhuVuc, KhachHang, LichSuNo, DonHang, ChiTietDon, BienThe
+from app.models import KhuVuc, KhachHang, LichSuNo, DonHang, ChiTietDon, BienThe, NhanVien
 from app.schemas.khach_hang import TaoKhuVuc, CapNhatKhuVuc, TaoKhachHang, CapNhatKhachHang, TaoLichSuNo, CapNhatLichSuNo
 from app.utils import now_vn, now_vn_ts, parse_duong_dan_anh
+from app import s3
 
 
 def _lay_khu_vuc_mac_dinh(db: Session):
@@ -165,21 +166,39 @@ def _xoa_don_voi_logic(don: DonHang, db: Session):
 
 @khach_hang_router.get("/{kh_id}/lich-su-no")
 def lich_su_khach_hang(kh_id: int, db: Session = Depends(get_db)):
+    nhan_viens = {nv.id: (nv.name or "") for nv in db.query(NhanVien).all()}
     lich_su = []
     for don in db.query(DonHang).filter(DonHang.customer_id == kh_id).all():
         ts = int(don.created_ts or 0)
-        ct_list = [{"product_name": ct.product_name, "variant_id": ct.variant_id, "variant_info": ct.variant_info, "quantity": ct.quantity, "price": ct.price} for ct in don.chi_tiet]
+        ct_list = [{"product_name": ct.product_name, "variant_id": ct.variant_id, "variant_info": ct.variant_info, "quantity": int(ct.quantity or 0), "price": int(ct.price or 0)} for ct in don.chi_tiet]
         date_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
+        raw_paths = parse_duong_dan_anh(don.delivery_photo_path)
+        anh_urls = [
+            url for url in (
+                s3.presigned_url(p) for p in raw_paths
+                if p and not p.startswith("/") and not p.startswith("local://")
+            ) if url
+        ]
         lich_su.append({
             "type": "ORDER", "date": date_str, "sort_ts": ts,
-            "desc": f"Xuất đơn hàng #{don.id}", "amount": don.total_amount,
-            "data": {"id": don.id, "customer_name": don.customer_name, "date": date_str, "total_money": don.total_amount, "total_qty": sum(ct.quantity for ct in don.chi_tiet), "delivery_photo_paths": parse_duong_dan_anh(don.delivery_photo_path), "items": ct_list},
+            "desc": f"Xuất đơn hàng #{don.id}", "amount": int(don.total_amount or 0),
+            "new_balance": None, "actor_employee_name": "",
+            "data": {
+                "id": don.id, "customer_name": don.customer_name, "date": date_str,
+                "total_money": int(don.total_amount or 0), "total_qty": sum(int(ct.quantity or 0) for ct in don.chi_tiet),
+                "delivery_photo_paths": anh_urls, "delivery_photo_keys": raw_paths,
+                "picker_note": (don.picker_note or ""),
+                "items": ct_list,
+            },
         })
     for log in db.query(LichSuNo).filter(LichSuNo.customer_id == kh_id).all():
         ts = int(log.created_ts or 0)
         lich_su.append({
             "type": "LOG", "date": (log.created_at or ""), "sort_ts": ts,
-            "desc": log.note, "amount": log.change_amount, "data": None, "log_id": log.id,
+            "desc": log.note, "amount": int(log.change_amount or 0),
+            "new_balance": int(log.new_balance or 0),
+            "actor_employee_name": nhan_viens.get(log.actor_employee_id, "") if log.actor_employee_id else "",
+            "log_id": log.id, "data": None,
         })
     return sorted(lich_su, key=lambda x: x["sort_ts"], reverse=True)
 

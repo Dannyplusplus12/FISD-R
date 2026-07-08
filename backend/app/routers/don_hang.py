@@ -55,8 +55,10 @@ def _serialize_don(don: DonHang) -> dict:
         })
     raw_paths = parse_duong_dan_anh(don.delivery_photo_path)
     anh_paths = [
-        s3.presigned_url(p) for p in raw_paths
-        if p and not p.startswith("/") and not p.startswith("local://")
+        url for url in (
+            s3.presigned_url(p) for p in raw_paths
+            if p and not p.startswith("/") and not p.startswith("local://")
+        ) if url
     ]
     created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
     assigned_at_str = don.assigned_at if isinstance(don.assigned_at, str) else (don.assigned_at.strftime("%Y-%m-%d %H:%M") if don.assigned_at else "")
@@ -610,7 +612,7 @@ def lay_don_quan_ly(limit: int = 200, db: Session = Depends(get_db)):
 
 @router.get("/don-hang/{don_id}/soan")
 def chi_tiet_soan_kho(don_id: int, db: Session = Depends(get_db)):
-    don = db.query(DonHang).filter(DonHang.id == don_id, DonHang.status == "assigned").first()
+    don = db.query(DonHang).filter(DonHang.id == don_id, DonHang.status.in_(["approved", "assigned"])).first()
     if not don:
         raise HTTPException(status_code=404, detail="Đơn không tồn tại hoặc chưa ở trạng thái soạn")
     items = []
@@ -625,6 +627,17 @@ def chi_tiet_soan_kho(don_id: int, db: Session = Depends(get_db)):
                 from app import s3 as _s3
                 image = _s3.presigned_url(key) if _la_s3_key(key) else ""
             rows = db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == ct.variant_id).all()
+            if not rows and bt and getattr(bt, "san_pham", None):
+                # Biến thể chưa được gán kho — tự đồng bộ từ các biến thể cùng sản phẩm
+                sibling_ids = [v.id for v in bt.san_pham.variants if v.id != ct.variant_id]
+                if sibling_ids:
+                    kho_ids = {r[0] for r in db.query(ViTriBienThe.ma_kho).filter(
+                        ViTriBienThe.ma_bien_the.in_(sibling_ids)).distinct().all()}
+                    for kho_id in kho_ids:
+                        db.add(ViTriBienThe(ma_bien_the=ct.variant_id, ma_kho=kho_id, so_luong=0))
+                    if kho_ids:
+                        db.commit()
+                        rows = db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == ct.variant_id).all()
             for row in rows:
                 if row.kho_hang:
                     warehouses.append({

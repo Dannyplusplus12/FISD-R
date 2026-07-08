@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'don_hang_orderer_repository.dart';
 
+// 0=Hôm nay, 1=Tuần, 2=Tháng, 3=Tất cả
+final donHangFilterProvider = StateProvider<int>((_) => 3);
+
 final donHangOrdererRepoProvider = Provider((_) => DonHangOrdererRepository());
 
 final donHangOrdererProvider =

@@ -90,6 +90,14 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
     await _luuDraft();
   }
 
+  Future<void> _chupCamera() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (picked == null) return;
+    setState(() => _draft!.anhPaths.add(picked.path));
+    await _luuDraft();
+  }
+
   Future<void> _xoaAnh(int idx) async {
     setState(() => _draft!.anhPaths.removeAt(idx));
     await _luuDraft();
@@ -97,6 +105,18 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
 
   Future<void> _xacNhanGiao(BuildContext ctx) async {
     if (_draft == null) return;
+
+    // Kiểm tra tất cả mặt hàng đã chọn kho
+    final chuaChonIdx = _draft!.items.indexWhere((i) => i.selectedKhoId == null);
+    if (chuaChonIdx >= 0) {
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+          content: Text('Vui lòng chọn kho cho tất cả mặt hàng'),
+          backgroundColor: Colors.orange));
+      _pageCtrl.animateToPage(chuaChonIdx,
+          duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
+      return;
+    }
+
     if (_draft!.anhPaths.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Cần ít nhất 1 ảnh xác nhận'), backgroundColor: Colors.orange));
       return;
@@ -168,6 +188,7 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
               ghiChuCtrl: _ghiChuCtrl,
               dangGui: _dangGui,
               onChupAnh: _chupAnh,
+              onChupCamera: _chupCamera,
               onXoaAnh: _xoaAnh,
               onXacNhan: () => _xacNhanGiao(context),
             );
@@ -397,6 +418,7 @@ class _XacNhanPage extends StatelessWidget {
   final TextEditingController ghiChuCtrl;
   final bool dangGui;
   final VoidCallback onChupAnh;
+  final VoidCallback onChupCamera;
   final void Function(int) onXoaAnh;
   final VoidCallback onXacNhan;
 
@@ -405,6 +427,7 @@ class _XacNhanPage extends StatelessWidget {
     required this.ghiChuCtrl,
     required this.dangGui,
     required this.onChupAnh,
+    required this.onChupCamera,
     required this.onXoaAnh,
     required this.onXacNhan,
   });
@@ -445,11 +468,18 @@ class _XacNhanPage extends StatelessWidget {
             // Ảnh xác nhận
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text('Ảnh xác nhận', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-              TextButton.icon(
-                onPressed: onChupAnh,
-                icon: const Icon(Icons.add_photo_alternate, color: Colors.white70, size: 18),
-                label: const Text('Thêm ảnh', style: TextStyle(color: Colors.white70)),
-              ),
+              Row(children: [
+                TextButton.icon(
+                  onPressed: onChupCamera,
+                  icon: const Icon(Icons.camera_alt, color: Colors.white70, size: 18),
+                  label: const Text('Camera', style: TextStyle(color: Colors.white70)),
+                ),
+                TextButton.icon(
+                  onPressed: onChupAnh,
+                  icon: const Icon(Icons.add_photo_alternate, color: Colors.white70, size: 18),
+                  label: const Text('Thư viện', style: TextStyle(color: Colors.white70)),
+                ),
+              ]),
             ]),
             if (draft.anhPaths.isEmpty)
               Container(

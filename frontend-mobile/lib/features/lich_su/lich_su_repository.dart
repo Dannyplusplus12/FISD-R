@@ -9,7 +9,7 @@ class LichSuRepository {
       queryParameters: {'days': days, 'limit': 500},
     );
     final data = res.data['data'] as List? ?? [];
-    return data.where((x) => x['type'] == 'ORDER').map((x) => x['order'] as Map<String, dynamic>).toList();
+    return data.cast<Map<String, dynamic>>();
   }
 
   Future<void> suaGhiChu(int donId, int pickerId, String ghiChu) async {

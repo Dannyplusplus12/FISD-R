@@ -19,7 +19,7 @@ def _client():
         region_name=settings.S3_REGION,
         config=Config(
             signature_version="s3v4",
-            s3={"addressing_style": "virtual"},
+            s3={"addressing_style": "path"},
         ),
     )
 

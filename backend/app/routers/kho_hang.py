@@ -150,6 +150,14 @@ def them_bien_the(data: ThemBienThe, db: Session = Depends(get_db)):
     bt = BienThe(product_id=data.product_id, color=data.color, size=data.size,
                  price=data.price, stock=data.stock)
     db.add(bt)
+    db.flush()
+    # Tự động tạo vi_tri_bien_the cho tất cả kho đã gán cho các biến thể khác của cùng sản phẩm
+    other_ids = [v.id for v in sp.variants if v.id != bt.id]
+    if other_ids:
+        kho_ids = {row[0] for row in db.query(ViTriBienThe.ma_kho).filter(
+            ViTriBienThe.ma_bien_the.in_(other_ids)).distinct().all()}
+        for kho_id in kho_ids:
+            db.add(ViTriBienThe(ma_bien_the=bt.id, ma_kho=kho_id, so_luong=0))
     db.commit()
     db.refresh(bt)
     return _serialize_bien_the(bt, db)
@@ -337,7 +345,7 @@ async def them_anh_don(
     don = db.query(DonHang).filter(DonHang.id == don_id, DonHang.status == "completed").first()
     if not don:
         raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
-    if don.delivered_by_id != picker_id:
+    if don.delivered_by_id != picker_id and don.created_by_employee_id != picker_id:
         raise HTTPException(status_code=403, detail="Bạn không có quyền sửa đơn này")
     ten_file = (photo.filename or "proof.jpg").strip()
     ext = os.path.splitext(ten_file)[1].lower()
@@ -365,7 +373,7 @@ def xoa_anh_don(
     don = db.query(DonHang).filter(DonHang.id == don_id, DonHang.status == "completed").first()
     if not don:
         raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
-    if don.delivered_by_id != picker_id:
+    if don.delivered_by_id != picker_id and don.created_by_employee_id != picker_id:
         raise HTTPException(status_code=403, detail="Bạn không có quyền sửa đơn này")
     current = parse_duong_dan_anh(don.delivery_photo_path)
     if key in current:

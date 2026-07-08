@@ -814,16 +814,23 @@ class _GioHangSheetState extends State<_GioHangSheet> {
                           ]),
                     ),
                     Row(children: [
-                      _Nut(Icons.remove,
-                          () => widget.onSoLuong(i, item.soLuong - 1)),
+                      _Nut(Icons.remove, () {
+                        widget.onSoLuong(i, item.soLuong - 1);
+                        setState(() {});
+                      }),
                       SoLuongEditor(
                         value: item.soLuong,
                         min: 1,
                         fontSize: 15,
-                        onChanged: (v) => widget.onSoLuong(i, v),
+                        onChanged: (v) {
+                          widget.onSoLuong(i, v);
+                          setState(() {});
+                        },
                       ),
-                      _Nut(Icons.add,
-                          () => widget.onSoLuong(i, item.soLuong + 1)),
+                      _Nut(Icons.add, () {
+                        widget.onSoLuong(i, item.soLuong + 1);
+                        setState(() {});
+                      }),
                     ]),
                     const SizedBox(width: 4),
                     GestureDetector(
@@ -858,9 +865,11 @@ class _GioHangSheetState extends State<_GioHangSheet> {
                         height: 22, width: 22,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
-                    : const Text('Xác nhận & gửi đến Picker',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.bold)),
+                    : const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text('Xác nhận',
+                            style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.bold))),
               ),
             ]),
           ),

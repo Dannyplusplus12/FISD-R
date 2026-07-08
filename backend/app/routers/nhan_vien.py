@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import NhanVien, DonHang, LichSuNo, KhachHang
 from app.schemas.nhan_vien import TaoNhanVien, CapNhatNhanVien, DangNhapPin, DangKyDangNhap
 from app.utils import now_vn, period_start_vn, parse_duong_dan_anh, trang_thai_don_vi
+from app import s3
 
 router = APIRouter(prefix="/nhan-vien", tags=["Nhân viên"])
 auth_router = APIRouter(prefix="/xac-thuc", tags=["Xác thực"])
@@ -47,7 +48,13 @@ def _serialize_don_hang(don: DonHang) -> dict:
             "quantity": sl, "price": int(ct.price or 0),
             "current_stock": None, "enough_stock": True,
         })
-    duong_dan_anh = parse_duong_dan_anh(don.delivery_photo_path)
+    raw_photo_keys = parse_duong_dan_anh(don.delivery_photo_path)
+    anh_urls = [
+        url for url in (
+            s3.presigned_url(p) for p in raw_photo_keys
+            if p and not p.startswith("/") and not p.startswith("local://")
+        ) if url
+    ]
     created_at_str = don.created_at if isinstance(don.created_at, str) else (don.created_at.strftime("%Y-%m-%d %H:%M") if don.created_at else "")
     delivered_at_str = don.delivered_at if isinstance(don.delivered_at, str) else (don.delivered_at.strftime("%Y-%m-%d %H:%M") if don.delivered_at else "")
     return {
@@ -68,7 +75,8 @@ def _serialize_don_hang(don: DonHang) -> dict:
         "delivered_by_name": (don.nguoi_giao.name if getattr(don, "nguoi_giao", None) else ""),
         "delivered_at": delivered_at_str,
         "delivery_photo_path": (don.delivery_photo_path or ""),
-        "delivery_photo_paths": duong_dan_anh,
+        "delivery_photo_keys": raw_photo_keys,
+        "delivery_photo_paths": anh_urls,
         "items": chi_tiet,
     }
 
@@ -198,7 +206,14 @@ def lich_su_giao_hang(nv_id: int, q: str = "", days: int = 0, limit: int = 200, 
     if not nv:
         raise HTTPException(status_code=404, detail="Nhân viên không tồn tại")
     gioi_han = min(max(limit, 1), 500)
-    query = db.query(DonHang).filter(DonHang.delivered_by_id == nv_id, DonHang.status == "completed")
+    from sqlalchemy import or_
+    query = db.query(DonHang).filter(
+        or_(
+            DonHang.delivered_by_id == nv_id,
+            (DonHang.assigned_picker_id == nv_id) & (DonHang.delivered_by_id.is_(None)),
+        ),
+        DonHang.status == "completed",
+    )
     tu_khoa = q.strip()
     if tu_khoa:
         if tu_khoa.isdigit():

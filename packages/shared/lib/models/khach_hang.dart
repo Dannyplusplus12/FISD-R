@@ -48,30 +48,43 @@ class KhachHang {
 
 class LichSuNoItem {
   final int id;
+  final String loai; // 'LOG' hoặc 'ORDER'
   final int thayDoi;
-  final int soDuMoi;
+  final int? soDuMoi; // null với ORDER entries
   final String ghiChu;
   final String ngayTao;
   final int? nhanVienId;
   final String tenNhanVien;
+  final Map<String, dynamic>? orderData; // chỉ có với ORDER entries
 
   const LichSuNoItem({
     required this.id,
+    this.loai = 'LOG',
     required this.thayDoi,
-    required this.soDuMoi,
+    this.soDuMoi,
     required this.ghiChu,
     required this.ngayTao,
     this.nhanVienId,
     this.tenNhanVien = '',
+    this.orderData,
   });
 
-  factory LichSuNoItem.fromJson(Map<String, dynamic> j) => LichSuNoItem(
-        id: j['id'] as int,
-        thayDoi: ((j['change_amount'] ?? 0) as num).toInt(),
-        soDuMoi: ((j['new_balance'] ?? 0) as num).toInt(),
-        ghiChu: (j['note'] ?? '').toString(),
-        ngayTao: (j['created_at'] ?? '').toString(),
-        nhanVienId: j['actor_employee_id'] as int?,
-        tenNhanVien: (j['actor_employee_name'] ?? '').toString(),
-      );
+  factory LichSuNoItem.fromJson(Map<String, dynamic> j) {
+    final loai = (j['type'] ?? 'LOG') as String;
+    final rawData = j['data'] as Map<String, dynamic>?;
+    final id = loai == 'LOG'
+        ? (j['log_id'] as int? ?? 0)
+        : (rawData?['id'] as int? ?? 0);
+    return LichSuNoItem(
+      id: id,
+      loai: loai,
+      thayDoi: ((j['amount'] ?? 0) as num).toInt(),
+      soDuMoi: j['new_balance'] != null ? (j['new_balance'] as num).toInt() : null,
+      ghiChu: (j['desc'] ?? '').toString(),
+      ngayTao: (j['date'] ?? '').toString(),
+      nhanVienId: j['actor_employee_id'] as int?,
+      tenNhanVien: (j['actor_employee_name'] ?? '').toString(),
+      orderData: loai == 'ORDER' ? rawData : null,
+    );
+  }
 }
