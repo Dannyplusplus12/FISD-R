@@ -17,9 +17,10 @@ class AppColors {
 }
 
 class AppDeco {
-  static InputDecoration input(String hint, {IconData? icon, String? suffixText}) =>
+  static InputDecoration input(String hint, {IconData? icon, String? suffixText, bool label = false}) =>
       InputDecoration(
-        hintText: hint,
+        hintText: label ? null : hint,
+        labelText: label ? hint : null,
         prefixIcon: icon != null ? Icon(icon, size: 20, color: AppColors.textSecondary) : null,
         suffixText: suffixText,
         suffixStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),

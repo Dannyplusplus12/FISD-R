@@ -130,12 +130,12 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
             TextField(
                 controller: _tenCtrl,
                 textCapitalization: TextCapitalization.words,
-                decoration: AppDeco.input('Tên sản phẩm')),
+                decoration: AppDeco.input('Tên sản phẩm', label: true)),
             const SizedBox(height: 10),
             TextField(
                 controller: _maCtrl,
                 textCapitalization: TextCapitalization.characters,
-                decoration: AppDeco.input('Mã hàng')),
+                decoration: AppDeco.input('Mã hàng', label: true)),
           ]),
         ),
         const SizedBox(height: 20),
