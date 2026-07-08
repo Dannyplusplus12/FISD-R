@@ -46,7 +46,19 @@ class KhoHangRepository {
     await ApiClient.dio.delete(ApiEndpoints.bienTheVaoKho(khoId, btId));
   }
 
-  // Biến thể CRUD (cho product-centric nếu cần)
+  // Biến thể CRUD
+  Future<Map<String, dynamic>> themBienTheSanPham(
+      int productId, String color, String size, int price) async {
+    final res = await ApiClient.dio.post(ApiEndpoints.bienThes,
+        data: {'product_id': productId, 'color': color, 'size': size, 'price': price, 'stock': 0});
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<void> capNhatBienThe(int id, String color, String size, int price) async {
+    await ApiClient.dio.put(ApiEndpoints.bienThe(id),
+        data: {'color': color, 'size': size, 'price': price});
+  }
+
   Future<void> xoaBienThe(int id) async {
     await ApiClient.dio.delete(ApiEndpoints.bienThe(id));
   }

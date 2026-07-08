@@ -7,8 +7,8 @@ import 'kho_hang_provider.dart';
 import 'chi_tiet_kho_page.dart';
 
 class KhoHangPage extends ConsumerWidget {
-  final bool readOnly;
-  const KhoHangPage({super.key, this.readOnly = false});
+  final bool canManage; // true = orderer (thêm/sửa/xóa kho), false = picker
+  const KhoHangPage({super.key, this.canManage = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,20 +32,20 @@ class KhoHangPage extends ConsumerWidget {
           child: Container(height: 1, color: AppColors.divider),
         ),
       ),
-      floatingActionButton: readOnly
-          ? null
-          : FloatingActionButton(
+      floatingActionButton: canManage
+          ? FloatingActionButton(
               onPressed: () => _themKho(context, ref),
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
-            ),
+            )
+          : null,
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => errorState(() => ref.invalidate(danhSachKhoProvider)),
         data: (khos) {
           if (khos.isEmpty) {
             return emptyState(Icons.store_outlined, 'Chưa có kho nào',
-                sub: readOnly ? null : 'Nhấn + để thêm kho mới');
+                sub: canManage ? 'Nhấn + để thêm kho mới' : null);
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(danhSachKhoProvider),
@@ -54,7 +54,7 @@ class KhoHangPage extends ConsumerWidget {
               itemCount: khos.length,
               itemBuilder: (_, i) => _KhoCard(
                 kho: khos[i],
-                readOnly: readOnly,
+                canManage: canManage,
                 onTap: () => _moChiTiet(context, ref, khos[i]),
                 onSua: () => _suaKho(context, ref, khos[i]),
                 onXoa: () => _xoaKho(context, ref, khos[i]),
@@ -68,7 +68,7 @@ class KhoHangPage extends ConsumerWidget {
 
   Future<void> _moChiTiet(BuildContext ctx, WidgetRef ref, KhoHang kho) async {
     await Navigator.push(
-        ctx, MaterialPageRoute(builder: (_) => ChiTietKhoPage(kho: kho, readOnly: readOnly)));
+        ctx, MaterialPageRoute(builder: (_) => ChiTietKhoPage(kho: kho, canManage: canManage)));
     ref.invalidate(danhSachKhoProvider);
   }
 
@@ -106,14 +106,14 @@ class KhoHangPage extends ConsumerWidget {
 
 class _KhoCard extends StatelessWidget {
   final KhoHang kho;
-  final bool readOnly;
+  final bool canManage;
   final VoidCallback onTap;
   final VoidCallback onSua;
   final VoidCallback onXoa;
 
   const _KhoCard({
     required this.kho,
-    required this.readOnly,
+    required this.canManage,
     required this.onTap,
     required this.onSua,
     required this.onXoa,
@@ -150,7 +150,7 @@ class _KhoCard extends StatelessWidget {
                   Text(kho.viTri,
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               ])),
-              if (!readOnly)
+              if (canManage)
                 PopupMenuButton<String>(
                   onSelected: (v) {
                     if (v == 'sua') onSua();
@@ -174,7 +174,7 @@ class _KhoCard extends StatelessWidget {
                   ],
                   child: const Icon(Icons.more_vert, color: AppColors.textSecondary),
                 )
-              else
+              else if (!canManage)
                 const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ]),
           ),

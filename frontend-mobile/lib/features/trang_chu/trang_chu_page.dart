@@ -37,7 +37,7 @@ class _PickerShellState extends State<_PickerShell> {
   Widget build(BuildContext context) {
     final trang = [
       DonHangPickerPage(phien: widget.phien),
-      const KhoHangPage(readOnly: true),
+      const KhoHangPage(canManage: false),
       LichSuPage(phien: widget.phien),
     ];
 
