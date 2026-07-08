@@ -177,6 +177,59 @@ def admin_khoi_tao_kho():
         db.close()
 
 
+@app.post("/admin/import-gia")
+def admin_import_gia():
+    """Xóa sản phẩm không có lịch sử đơn, cập nhật giá từ dữ liệu tham chiếu."""
+    from app.models import KhoHang, BienThe, ViTriBienThe, SanPham
+    GIA_THAM_CHIEU = {
+        'BCRO': 90000, 'BNIKE': 60000, 'CHUCAO': 100000, 'CHUTHAP': 85000,
+        'DEPLONG': 150000, 'G5320': 330000, 'G8820': 360000, 'GA175': 245000,
+        'GA176': 265000, 'GA176 N': 260000, 'GA180': 240000, 'GIAYNAM': 265000,
+        'GON532': 330000, 'GS5205': 255000, 'GTIGE': 295000, 'GV18': 235000,
+        'HOKA2': 175000, 'KCRO': 90000, 'LOANGNAM': 100000, 'LOANGNU': 100000,
+        'LONGDEN': 150000, 'NIKE2': 95000, 'NIKETQ': 85000, 'SAMBA': 180000,
+        'SDHOKA1': 140000, 'SDHOKAXIN': 210000, 'SRIENGTQ': 80000, 'STE': 75000,
+        'TRONCAO': 100000, 'TRONTHAP': 85000, 'VIENTQ': 88000, 'XEAD': 102000,
+    }
+    db = SessionLocal()
+    try:
+        tat_ca = db.query(SanPham).all()
+        xoa, giu = 0, 0
+        for sp in tat_ca:
+            if sp.name not in GIA_THAM_CHIEU and (sp.code or '') not in GIA_THAM_CHIEU:
+                db.query(ViTriBienThe).filter(
+                    ViTriBienThe.ma_bien_the.in_(
+                        [bt.id for bt in db.query(BienThe).filter(BienThe.product_id == sp.id).all()]
+                    )
+                ).delete(synchronize_session=False)
+                db.query(BienThe).filter(BienThe.product_id == sp.id).delete(synchronize_session=False)
+                db.delete(sp)
+                xoa += 1
+            else:
+                giu += 1
+        db.commit()
+        cap_nhat = 0
+        for sp in db.query(SanPham).all():
+            gia = GIA_THAM_CHIEU.get(sp.name) or GIA_THAM_CHIEU.get(sp.code or '')
+            if gia is None:
+                continue
+            for bt in db.query(BienThe).filter(BienThe.product_id == sp.id).all():
+                bt.price = gia
+                cap_nhat += 1
+        ton_kho_update = 0
+        for bt in db.query(BienThe).all():
+            tong = sum(v.so_luong for v in db.query(ViTriBienThe).filter(ViTriBienThe.ma_bien_the == bt.id).all())
+            bt.stock = tong
+            ton_kho_update += 1
+        db.commit()
+        return {"status": "ok", "xoa": xoa, "giu": giu, "cap_nhat_gia": cap_nhat}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "detail": str(e)}
+    finally:
+        db.close()
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "app": "FISD API"}
