@@ -1,11 +1,9 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
 import '../../core/session/phien_lam_viec.dart';
-import 'don_hang_picker_provider.dart';
 import 'draft_helper.dart';
 import 'package:fisd_shared/fisd_shared.dart';
 

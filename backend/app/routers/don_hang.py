@@ -280,6 +280,11 @@ def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import func as sqla_func
         tong = sum(item.quantity * item.price for item in data.cart)
+        for item in data.cart:
+            bt = db.query(BienThe).filter(BienThe.id == item.variant_id).first()
+            if not bt or int(bt.stock or 0) < int(item.quantity or 0):
+                raise HTTPException(status_code=400, detail=f"SP {item.product_name} thiếu hàng")
+            bt.stock = int(bt.stock or 0) - int(item.quantity or 0)
         ten_khach = data.customer_name.strip()
         khach = None
         if ten_khach and ten_khach != "Khách lẻ":
@@ -289,7 +294,7 @@ def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
                 db.add(khach)
                 db.flush()
         don = DonHang(total_amount=tong, customer_name=khach.name if khach else "Khách lẻ",
-                      customer_id=khach.id if khach else None, is_draft=1, status="pending",
+                      customer_id=khach.id if khach else None, is_draft=1, status="approved",
                       created_by_employee_id=data.employee_id, created_at=now_vn().strftime("%Y-%m-%d %H:%M"), created_ts=now_vn_ts())
         db.add(don)
         db.flush()
@@ -297,7 +302,7 @@ def thanh_toan_nhap(data: YeuCauThanhToan, db: Session = Depends(get_db)):
             db.add(ChiTietDon(order_id=don.id, product_name=item.product_name, variant_id=item.variant_id,
                               variant_info=f"{item.color}-{item.size}", quantity=item.quantity, price=item.price))
         db.commit()
-        return {"status": "success", "order_id": don.id, "message": "Đơn hàng đã gửi chờ duyệt"}
+        return {"status": "success", "order_id": don.id, "message": "Đơn hàng đã gửi đến picker"}
     except HTTPException:
         db.rollback()
         raise

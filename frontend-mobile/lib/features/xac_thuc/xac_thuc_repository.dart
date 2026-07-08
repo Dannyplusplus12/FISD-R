@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:fisd_shared/fisd_shared.dart';
 import '../../core/api/api_client.dart';
 
