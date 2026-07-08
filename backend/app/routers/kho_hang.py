@@ -259,7 +259,7 @@ def lay_san_pham_trong_kho(kho_id: int, db: Session = Depends(get_db)):
         if sp.id not in sp_map:
             key = sp.image_path or ""
             sp_map[sp.id] = {
-                "id": sp.id, "ten": sp.ten,
+                "id": sp.id, "ten": sp.name,
                 "image": s3.presigned_url(key) if _la_s3_key(key) else "",
                 "bien_thes": [],
             }

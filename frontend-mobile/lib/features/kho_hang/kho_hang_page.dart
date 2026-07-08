@@ -1,6 +1,5 @@
 import 'package:fisd_shared/fisd_shared.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../xac_thuc/xac_thuc_provider.dart';
@@ -223,30 +222,42 @@ class _FormKhoState extends ConsumerState<_FormKho> {
       padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
           left: 20, right: 20, top: 20),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-        Row(children: [
-          Text(widget.edit == null ? 'Thêm kho mới' : 'Sửa kho',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-        ]),
-        const SizedBox(height: 16),
-        TextField(controller: _tenCtrl, decoration: AppDeco.input('Tên kho *', icon: Icons.store_outlined)),
-        const SizedBox(height: 10),
-        TextField(controller: _viTriCtrl, decoration: AppDeco.input('Vị trí', icon: Icons.location_on_outlined)),
-        const SizedBox(height: 10),
-        TextField(controller: _ghiChuCtrl, decoration: AppDeco.input('Ghi chú', icon: Icons.notes_outlined)),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: _loading ? null : _luu,
-          style: AppDeco.primaryBtn,
-          child: _loading
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Text('Lưu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        ),
-        const SizedBox(height: 20),
-      ]),
+            Row(children: [
+              Text(widget.edit == null ? 'Thêm kho mới' : 'Sửa kho',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Spacer(),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ]),
+            const SizedBox(height: 16),
+            TextField(
+                controller: _tenCtrl,
+                decoration: AppDeco.input('Tên kho *', icon: Icons.store_outlined)),
+            const SizedBox(height: 10),
+            TextField(
+                controller: _viTriCtrl,
+                decoration: AppDeco.input('Vị trí', icon: Icons.location_on_outlined)),
+            const SizedBox(height: 10),
+            TextField(
+                controller: _ghiChuCtrl,
+                decoration: AppDeco.input('Ghi chú', icon: Icons.notes_outlined)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loading ? null : _luu,
+              style: AppDeco.primaryBtn,
+              child: _loading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Lưu',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 20),
+          ]),
     );
   }
 
@@ -255,8 +266,8 @@ class _FormKhoState extends ConsumerState<_FormKho> {
     if (ten.isEmpty) return;
     setState(() => _loading = true);
     if (widget.edit != null) {
-      await ref.read(khoHangActionProvider.notifier)
-          .capNhatKho(widget.edit!.id, ten, _viTriCtrl.text.trim(), _ghiChuCtrl.text.trim());
+      await ref.read(khoHangActionProvider.notifier).capNhatKho(
+          widget.edit!.id, ten, _viTriCtrl.text.trim(), _ghiChuCtrl.text.trim());
     } else {
       await ref.read(khoHangActionProvider.notifier)
           .taoKho(ten, _viTriCtrl.text.trim(), _ghiChuCtrl.text.trim());
