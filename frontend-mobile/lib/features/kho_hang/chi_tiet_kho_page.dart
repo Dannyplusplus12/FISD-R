@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:fisd_shared/fisd_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -197,6 +196,9 @@ class _SanPhamSheet extends ConsumerStatefulWidget {
 
 class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
   late List<Map<String, dynamic>> _bienThes;
+  // btId → soLuong cần lưu
+  final Map<int, int> _chuaLuu = {};
+  bool _dangLuu = false;
 
   @override
   void initState() {
@@ -205,11 +207,24 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
         (widget.sp['bien_thes'] as List? ?? []).cast<Map<String, dynamic>>());
   }
 
+  Future<void> _luu(BuildContext ctx) async {
+    if (_chuaLuu.isEmpty) { Navigator.pop(ctx); return; }
+    setState(() => _dangLuu = true);
+    final repo = ref.read(khoHangRepoProvider);
+    for (final entry in _chuaLuu.entries) {
+      await repo.capNhatSoLuongBienTheKho(widget.khoId, entry.key, entry.value);
+    }
+    _chuaLuu.clear();
+    widget.onChanged();
+    if (ctx.mounted) Navigator.pop(ctx);
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrl = widget.sp['image'] as String? ?? '';
     final ten = widget.sp['ten'] as String;
     final spId = widget.sp['id'] as int;
+    final coDuLieuChuaLuu = _chuaLuu.isNotEmpty;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -227,22 +242,46 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
               width: 40, height: 4,
               decoration: BoxDecoration(
                   color: AppColors.divider, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(children: [
+              const SizedBox(width: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: imageUrl.isNotEmpty
                     ? Image.network(imageUrl,
-                        width: 54, height: 54, fit: BoxFit.cover,
+                        width: 48, height: 48, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _thumb())
                     : _thumb(),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                   child: Text(ten,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              // Nút Lưu — chỉ nổi bật khi có thay đổi chưa lưu
+              _dangLuu
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2)))
+                  : TextButton(
+                      onPressed: () => _luu(context),
+                      style: TextButton.styleFrom(
+                        backgroundColor: coDuLieuChuaLuu
+                            ? AppColors.primary
+                            : AppColors.background,
+                        foregroundColor: coDuLieuChuaLuu
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        minimumSize: Size.zero,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: Text(coDuLieuChuaLuu ? 'Lưu' : 'Xong',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (v) {
@@ -266,7 +305,7 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
               ),
             ]),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Container(height: 1, color: AppColors.divider),
           Expanded(
             child: ListView(
@@ -276,8 +315,12 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
                 key: ValueKey(e.value['id'] ?? e.key),
                 bt: e.value,
                 khoId: widget.khoId,
-                onSLChanged: (newSL) =>
-                    setState(() => _bienThes[e.key] = {...e.value, 'so_luong': newSL}),
+                onSLChanged: (btId, newSL) {
+                  setState(() {
+                    _bienThes[e.key] = {...e.value, 'so_luong': newSL};
+                    _chuaLuu[btId] = newSL;
+                  });
+                },
                 onEdited: (updated) =>
                     setState(() => _bienThes[e.key] = {...e.value, ...updated}),
                 onXoa: () {
@@ -336,7 +379,8 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
 class _BienTheRow extends ConsumerStatefulWidget {
   final Map<String, dynamic> bt;
   final int khoId;
-  final ValueChanged<int> onSLChanged;
+  // trả về (btId, soLuongMoi) để parent track thay đổi chưa lưu
+  final void Function(int btId, int soLuong) onSLChanged;
   final ValueChanged<Map<String, dynamic>> onEdited;
   final VoidCallback onXoa;
   final VoidCallback onChanged;
@@ -357,7 +401,6 @@ class _BienTheRow extends ConsumerStatefulWidget {
 
 class _BienTheRowState extends ConsumerState<_BienTheRow> {
   late int _soLuong;
-  Timer? _debounce;
 
   @override
   void initState() {
@@ -368,30 +411,14 @@ class _BienTheRowState extends ConsumerState<_BienTheRow> {
   @override
   void didUpdateWidget(_BienTheRow old) {
     super.didUpdateWidget(old);
-    // nếu parent reset lại dữ liệu (vd refresh), đồng bộ lại
     final newSL = widget.bt['so_luong'] as int;
-    if (_debounce == null && newSL != _soLuong) {
-      setState(() => _soLuong = newSL);
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
+    if (newSL != _soLuong) setState(() => _soLuong = newSL);
   }
 
   void _doi(int delta) {
     final moi = (_soLuong + delta).clamp(0, 9999);
     setState(() => _soLuong = moi);
-    widget.onSLChanged(moi);
-    // debounce: gọi API sau 700ms không bấm tiếp
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 700), () async {
-      await ref.read(khoHangRepoProvider)
-          .capNhatSoLuongBienTheKho(widget.khoId, widget.bt['id'] as int, moi);
-      _debounce = null;
-    });
+    widget.onSLChanged(widget.bt['id'] as int, moi);
   }
 
   String _ten() {
