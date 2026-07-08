@@ -286,7 +286,7 @@ class _ItemPage extends StatelessWidget {
     return Stack(fit: StackFit.expand, children: [
       // Ảnh sản phẩm full screen
       item.image.isNotEmpty
-          ? Image.network(item.image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _anhTrong())
+          ? Image.network(item.image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => _anhTrong())
           : _anhTrong(),
 
       // Gradient phía dưới
