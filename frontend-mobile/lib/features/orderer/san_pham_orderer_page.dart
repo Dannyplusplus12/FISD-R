@@ -7,8 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import 'san_pham_orderer_provider.dart';
 
-// FormSanPhamPage — tạo / sửa sản phẩm (standalone fullscreen page)
-
 class FormSanPhamPage extends ConsumerStatefulWidget {
   final SanPham? edit;
   const FormSanPhamPage({super.key, this.edit});
@@ -24,7 +22,6 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
   String? _localImagePath;
   bool _uploadingAnh = false;
   bool _saving = false;
-
   late List<_BienTheEdit> _bienThes;
 
   @override
@@ -36,13 +33,7 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
       _maCtrl.text = sp.ma;
       _imagePath = sp.anhKey;
       _bienThes = sp.bienThes
-          .map((bt) => _BienTheEdit(
-                id: bt.id,
-                mauSac: bt.mauSac,
-                kichCo: bt.kichCo,
-                gia: bt.gia,
-                tonKho: bt.tonKho,
-              ))
+          .map((bt) => _BienTheEdit(id: bt.id, mauSac: bt.mauSac, kichCo: bt.kichCo, gia: bt.gia))
           .toList();
     } else {
       _bienThes = [];
@@ -56,25 +47,17 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
     super.dispose();
   }
 
-  Future<void> _chupAnh() async {
+  Future<void> _chonAnh() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked == null) return;
-    setState(() {
-      _localImagePath = picked.path;
-      _uploadingAnh = true;
-    });
+    setState(() { _localImagePath = picked.path; _uploadingAnh = true; });
     try {
-      final key =
-          await ref.read(sanPhamOrdererRepoProvider).uploadAnh(picked.path, picked.name);
+      final key = await ref.read(sanPhamOrdererRepoProvider).uploadAnh(picked.path, picked.name);
       if (mounted) setState(() { _imagePath = key; _uploadingAnh = false; });
     } catch (_) {
       if (mounted) setState(() => _uploadingAnh = false);
     }
-  }
-
-  void _themBienThe() {
-    setState(() => _bienThes.add(_BienTheEdit(mauSac: '', kichCo: '', gia: 0, tonKho: 0)));
   }
 
   Future<void> _luu() async {
@@ -89,25 +72,17 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
                 'color': bt.mauSac,
                 'size': bt.kichCo,
                 'price': bt.gia,
-                'stock': bt.tonKho,
+                'stock': 0,
               })
           .toList();
-
       if (widget.edit != null) {
         await ref.read(sanPhamOrdererRepoProvider).capNhatSanPham(
-              id: widget.edit!.id,
-              ten: ten,
-              ma: _maCtrl.text.trim(),
-              imagePath: _imagePath,
-              bienThes: bts,
-            );
+            id: widget.edit!.id, ten: ten, ma: _maCtrl.text.trim(),
+            imagePath: _imagePath, bienThes: bts);
       } else {
         await ref.read(sanPhamOrdererRepoProvider).taoSanPham(
-              ten: ten,
-              ma: _maCtrl.text.trim(),
-              imagePath: _imagePath,
-              bienThes: bts,
-            );
+            ten: ten, ma: _maCtrl.text.trim(),
+            imagePath: _imagePath, bienThes: bts);
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
@@ -117,141 +92,178 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.edit != null;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm',
+        title: Text(widget.edit != null ? 'Sửa sản phẩm' : 'Thêm sản phẩm',
             style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.divider),
-        ),
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: AppColors.divider)),
         actions: [
-          TextButton(
-            onPressed: _saving ? null : _luu,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Lưu',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
-          ),
+          _saving
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2)))
+              : TextButton(
+                  onPressed: _luu,
+                  child: const Text('Lưu',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
         ],
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        // Ảnh sản phẩm
-        GestureDetector(
-          onTap: _chupAnh,
-          child: Container(
-            height: 160,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: _uploadingAnh
-                ? const Center(child: CircularProgressIndicator())
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: _buildAnhPreview(),
-                  ),
-          ),
+        _AnhPicker(
+          localPath: _localImagePath,
+          networkUrl: widget.edit?.anh ?? '',
+          uploading: _uploadingAnh,
+          onTap: _chonAnh,
         ),
         const SizedBox(height: 16),
-        // Thông tin cơ bản
         Container(
           decoration: AppDeco.card(),
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             TextField(
                 controller: _tenCtrl,
-                decoration: AppDeco.input('Tên sản phẩm *', icon: Icons.label_outline)),
+                textCapitalization: TextCapitalization.words,
+                decoration: AppDeco.input('Tên sản phẩm')),
             const SizedBox(height: 10),
             TextField(
                 controller: _maCtrl,
-                decoration: AppDeco.input('Mã sản phẩm', icon: Icons.qr_code_outlined)),
+                textCapitalization: TextCapitalization.characters,
+                decoration: AppDeco.input('Mã hàng')),
           ]),
         ),
-        const SizedBox(height: 16),
-        // Biến thể header
+        const SizedBox(height: 20),
         Row(children: [
           const Text('Biến thể', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const Spacer(),
-          TextButton.icon(
-            onPressed: _themBienThe,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Thêm'),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        ..._bienThes.asMap().entries.map((e) => _BienTheForm(
-              key: ValueKey(e.key),
-              data: e.value,
-              onRemove: () => setState(() => _bienThes.removeAt(e.key)),
-            )),
-        if (_bienThes.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: AppDeco.card(),
-            child: const Center(
-              child: Text(
-                'Chưa có biến thể nào.\nNhấn "Thêm" để tạo biến thể.',
-                style: TextStyle(color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
+          GestureDetector(
+            onTap: () => setState(
+                () => _bienThes.add(_BienTheEdit(mauSac: '', kichCo: '', gia: 0))),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                  color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.add, size: 16, color: Colors.white),
+                SizedBox(width: 4),
+                Text('Thêm', style: TextStyle(color: Colors.white, fontSize: 13)),
+              ]),
             ),
           ),
+        ]),
+        const SizedBox(height: 10),
+        if (_bienThes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: AppDeco.card(),
+            child: const Center(
+              child: Text('Chưa có biến thể nào.\nNhấn Thêm để tạo.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center),
+            ),
+          )
+        else
+          ..._bienThes.asMap().entries.map((e) => _BienTheForm(
+                key: ValueKey(e.key),
+                data: e.value,
+                index: e.key + 1,
+                onRemove: () => setState(() => _bienThes.removeAt(e.key)),
+              )),
         const SizedBox(height: 40),
       ]),
     );
   }
+}
 
-  Widget _buildAnhPreview() {
-    if (_localImagePath != null) {
-      return Image.file(File(_localImagePath!), fit: BoxFit.cover, width: double.infinity);
-    }
-    if (_imagePath.isNotEmpty && widget.edit?.anh.isNotEmpty == true) {
-      return Image.network(widget.edit!.anh, fit: BoxFit.cover, width: double.infinity,
-          errorBuilder: (_, __, ___) => _anhPlaceholder());
-    }
-    return _anhPlaceholder();
+// ── Ảnh picker ────────────────────────────────────────────────────────────────
+
+class _AnhPicker extends StatelessWidget {
+  final String? localPath;
+  final String networkUrl;
+  final bool uploading;
+  final VoidCallback onTap;
+
+  const _AnhPicker({
+    required this.localPath,
+    required this.networkUrl,
+    required this.uploading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.divider),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(fit: StackFit.expand, children: [
+            if (uploading)
+              const Center(child: CircularProgressIndicator())
+            else if (localPath != null)
+              Image.file(File(localPath!), fit: BoxFit.cover)
+            else if (networkUrl.isNotEmpty)
+              Image.network(networkUrl, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _placeholder())
+            else
+              _placeholder(),
+            // Edit overlay
+            Positioned(
+              bottom: 10, right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                    color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.photo_camera_outlined, size: 16, color: Colors.white),
+                  SizedBox(width: 6),
+                  Text('Đổi ảnh', style: TextStyle(color: Colors.white, fontSize: 12)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
-  Widget _anhPlaceholder() => const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.textSecondary),
-          SizedBox(height: 8),
-          Text('Nhấn để chọn ảnh', style: TextStyle(color: AppColors.textSecondary)),
-        ],
-      );
+  Widget _placeholder() => const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppColors.divider),
+        SizedBox(height: 8),
+        Text('Nhấn để chọn ảnh', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+      ]);
 }
+
+// ── Data model biến thể ───────────────────────────────────────────────────────
 
 class _BienTheEdit {
   final int? id;
   String mauSac;
   String kichCo;
   int gia;
-  int tonKho;
 
-  _BienTheEdit({
-    this.id,
-    required this.mauSac,
-    required this.kichCo,
-    required this.gia,
-    required this.tonKho,
-  });
+  _BienTheEdit({this.id, required this.mauSac, required this.kichCo, required this.gia});
 }
+
+// ── Form biến thể ─────────────────────────────────────────────────────────────
 
 class _BienTheForm extends StatefulWidget {
   final _BienTheEdit data;
+  final int index;
   final VoidCallback onRemove;
-  const _BienTheForm({super.key, required this.data, required this.onRemove});
+  const _BienTheForm({super.key, required this.data, required this.index, required this.onRemove});
 
   @override
   State<_BienTheForm> createState() => _BienTheFormState();
@@ -261,15 +273,14 @@ class _BienTheFormState extends State<_BienTheForm> {
   late final TextEditingController _mauCtrl;
   late final TextEditingController _coCtrl;
   late final TextEditingController _giaCtrl;
-  late final TextEditingController _slCtrl;
 
   @override
   void initState() {
     super.initState();
     _mauCtrl = TextEditingController(text: widget.data.mauSac);
     _coCtrl = TextEditingController(text: widget.data.kichCo);
-    _giaCtrl = TextEditingController(text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
-    _slCtrl = TextEditingController(text: '${widget.data.tonKho}');
+    _giaCtrl = TextEditingController(
+        text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
   }
 
   @override
@@ -277,7 +288,6 @@ class _BienTheFormState extends State<_BienTheForm> {
     _mauCtrl.dispose();
     _coCtrl.dispose();
     _giaCtrl.dispose();
-    _slCtrl.dispose();
     super.dispose();
   }
 
@@ -285,25 +295,24 @@ class _BienTheFormState extends State<_BienTheForm> {
     widget.data.mauSac = _mauCtrl.text.trim();
     widget.data.kichCo = _coCtrl.text.trim();
     widget.data.gia = (int.tryParse(_giaCtrl.text) ?? 0) * 1000;
-    widget.data.tonKho = int.tryParse(_slCtrl.text) ?? 0;
   }
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.data.id != null ? 'Biến thể #${widget.data.id}' : 'Biến thể mới';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: AppDeco.card(),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text(label,
+          Text('Biến thể ${widget.index}',
               style: const TextStyle(
                   fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
           const Spacer(),
           GestureDetector(
-              onTap: widget.onRemove,
-              child: const Icon(Icons.close, size: 18, color: AppColors.danger)),
+            onTap: widget.onRemove,
+            child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+          ),
         ]),
         const SizedBox(height: 10),
         Row(children: [
@@ -313,31 +322,22 @@ class _BienTheFormState extends State<_BienTheForm> {
                   onChanged: (_) => _sync(),
                   decoration: AppDeco.input('Màu sắc'))),
           const SizedBox(width: 8),
-          Expanded(
-              child: TextField(
-                  controller: _coCtrl,
-                  onChanged: (_) => _sync(),
-                  decoration: AppDeco.input('Kích cỡ'))),
+          SizedBox(
+            width: 100,
+            child: TextField(
+                controller: _coCtrl,
+                onChanged: (_) => _sync(),
+                decoration: AppDeco.input('Size')),
+          ),
         ]),
         const SizedBox(height: 8),
-        Row(children: [
-          Expanded(
-              child: TextField(
-                  controller: _giaCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => _sync(),
-                  decoration: const InputDecoration(labelText: 'Giá (k) *', suffixText: 'k'))),
-          const SizedBox(width: 8),
-          Expanded(
-              child: TextField(
-                  controller: _slCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => _sync(),
-                  decoration:
-                      AppDeco.input('Tồn kho', icon: Icons.warehouse_outlined))),
-        ]),
+        TextField(
+          controller: _giaCtrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (_) => _sync(),
+          decoration: AppDeco.input('Giá', suffixText: 'k'),
+        ),
       ]),
     );
   }
