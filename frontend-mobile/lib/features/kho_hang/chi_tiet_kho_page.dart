@@ -2,6 +2,7 @@ import 'package:fisd_shared/fisd_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/so_luong_editor.dart';
 import '../../core/theme.dart';
 import '../orderer/san_pham_orderer_page.dart';
 import '../orderer/san_pham_orderer_provider.dart';
@@ -443,13 +444,14 @@ class _BienTheRowState extends ConsumerState<_BienTheRow> {
           ]),
         ),
         _nut(Icons.remove, () => _doi(-1)),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-              color: AppColors.background, borderRadius: BorderRadius.circular(10)),
-          child: Text('$_soLuong',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        SoLuongEditor(
+          value: _soLuong,
+          fontSize: 18,
+          width: 52,
+          onChanged: (v) {
+            setState(() => _soLuong = v);
+            widget.onSLChanged(widget.bt['id'] as int, v);
+          },
         ),
         _nut(Icons.add, () => _doi(1)),
         const SizedBox(width: 4),

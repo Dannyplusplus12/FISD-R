@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
+import '../../core/so_luong_editor.dart';
 import '../../core/theme.dart';
 import 'don_hang_orderer_provider.dart';
 import 'don_hang_orderer_repository.dart';
@@ -124,6 +125,18 @@ class _TaoDonPageState extends ConsumerState<TaoDonPage> {
     });
   }
 
+  void _setGioQuantity(int btId, int newSL) {
+    final idx = _gio.indexWhere((i) => i.variantId == btId);
+    if (idx < 0) return;
+    setState(() {
+      if (newSL <= 0) {
+        _gio.removeAt(idx);
+      } else {
+        _gio[idx].soLuong = newSL;
+      }
+    });
+  }
+
   Future<void> _chonKhach() async {
     final result = await showModalBottomSheet<Map<String, dynamic>?>(
       context: context,
@@ -145,8 +158,8 @@ class _TaoDonPageState extends ConsumerState<TaoDonPage> {
         khach: _khachDaChon,
         tongTien: _tongTien,
         onConfirm: _gui,
-        onSoLuongChanged: (idx, delta) =>
-            setState(() => _gio[idx].soLuong = (_gio[idx].soLuong + delta).clamp(1, 999)),
+        onSoLuong: (idx, newSL) =>
+            setState(() => _gio[idx].soLuong = newSL.clamp(1, 999)),
         onXoa: (idx) => setState(() => _gio.removeAt(idx)),
       ),
     );
@@ -310,6 +323,7 @@ class _TaoDonPageState extends ConsumerState<TaoDonPage> {
         gioMap: gioMap,
         onThem: (bt) => _themVaoGio(sp, bt),
         onBot: (btId) => _botKhoiGio(btId),
+        onSet: (btId, newSL) => _setGioQuantity(btId, newSL),
       ),
     );
   }
@@ -403,12 +417,14 @@ class _BienTheSheet extends StatefulWidget {
   final Map<int, int> gioMap;
   final void Function(Map<String, dynamic> bt) onThem;
   final void Function(int btId) onBot;
+  final void Function(int btId, int newSL) onSet;
 
   const _BienTheSheet({
     required this.sp,
     required this.gioMap,
     required this.onThem,
     required this.onBot,
+    required this.onSet,
   });
 
   @override
@@ -551,13 +567,13 @@ class _BienTheSheetState extends State<_BienTheSheet> {
                           setState(() =>
                               _local[btId] = (_local[btId]! - 1).clamp(0, 999));
                         }),
-                        SizedBox(
-                          width: 38,
-                          child: Center(
-                            child: Text('$soLuong',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                          ),
+                        SoLuongEditor(
+                          value: soLuong,
+                          min: 1,
+                          onChanged: (v) {
+                            widget.onSet(btId, v);
+                            setState(() => _local[btId] = v);
+                          },
                         ),
                         _Nut(Icons.add, () {
                           widget.onThem(bt);
@@ -702,7 +718,7 @@ class _GioHangSheet extends StatefulWidget {
   final Map<String, dynamic>? khach;
   final int tongTien;
   final Future<bool> Function() onConfirm;
-  final void Function(int idx, int delta) onSoLuongChanged;
+  final void Function(int idx, int newSL) onSoLuong;
   final void Function(int idx) onXoa;
 
   const _GioHangSheet({
@@ -710,7 +726,7 @@ class _GioHangSheet extends StatefulWidget {
     required this.khach,
     required this.tongTien,
     required this.onConfirm,
-    required this.onSoLuongChanged,
+    required this.onSoLuong,
     required this.onXoa,
   });
 
@@ -798,16 +814,16 @@ class _GioHangSheetState extends State<_GioHangSheet> {
                           ]),
                     ),
                     Row(children: [
-                      _Nut(Icons.remove, () => widget.onSoLuongChanged(i, -1)),
-                      SizedBox(
-                        width: 34,
-                        child: Center(
-                          child: Text('${item.soLuong}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15)),
-                        ),
+                      _Nut(Icons.remove,
+                          () => widget.onSoLuong(i, item.soLuong - 1)),
+                      SoLuongEditor(
+                        value: item.soLuong,
+                        min: 1,
+                        fontSize: 15,
+                        onChanged: (v) => widget.onSoLuong(i, v),
                       ),
-                      _Nut(Icons.add, () => widget.onSoLuongChanged(i, 1)),
+                      _Nut(Icons.add,
+                          () => widget.onSoLuong(i, item.soLuong + 1)),
                     ]),
                     const SizedBox(width: 4),
                     GestureDetector(
