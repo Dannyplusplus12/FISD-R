@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fisd_shared/fisd_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -331,7 +332,7 @@ class _SanPhamSheetState extends ConsumerState<_SanPhamSheet> {
 
 // ── Row biến thể ──────────────────────────────────────────────────────────────
 
-class _BienTheRow extends ConsumerWidget {
+class _BienTheRow extends ConsumerStatefulWidget {
   final Map<String, dynamic> bt;
   final int khoId;
   final ValueChanged<int> onSLChanged;
@@ -349,9 +350,58 @@ class _BienTheRow extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final soLuong = bt['so_luong'] as int;
+  ConsumerState<_BienTheRow> createState() => _BienTheRowState();
+}
 
+class _BienTheRowState extends ConsumerState<_BienTheRow> {
+  late int _soLuong;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _soLuong = widget.bt['so_luong'] as int;
+  }
+
+  @override
+  void didUpdateWidget(_BienTheRow old) {
+    super.didUpdateWidget(old);
+    // nếu parent reset lại dữ liệu (vd refresh), đồng bộ lại
+    final newSL = widget.bt['so_luong'] as int;
+    if (_debounce == null && newSL != _soLuong) {
+      setState(() => _soLuong = newSL);
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _doi(int delta) {
+    final moi = (_soLuong + delta).clamp(0, 9999);
+    setState(() => _soLuong = moi);
+    widget.onSLChanged(moi);
+    // debounce: gọi API sau 700ms không bấm tiếp
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 700), () async {
+      await ref.read(khoHangRepoProvider)
+          .capNhatSoLuongBienTheKho(widget.khoId, widget.bt['id'] as int, moi);
+      _debounce = null;
+    });
+  }
+
+  String _ten() {
+    final parts = [
+      if ((widget.bt['mau_sac'] as String).isNotEmpty) widget.bt['mau_sac'],
+      if ((widget.bt['kich_co'] as String).isNotEmpty) widget.bt['kich_co'],
+    ];
+    return parts.isEmpty ? 'Mặc định' : parts.join(' / ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
@@ -359,26 +409,26 @@ class _BienTheRow extends ConsumerWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_ten(),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            Text(fmtTien(bt['don_gia'] as int),
+            Text(fmtTien(widget.bt['don_gia'] as int),
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ]),
         ),
-        _nut(Icons.remove, () => _doi(ref, soLuong, -1)),
+        _nut(Icons.remove, () => _doi(-1)),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
               color: AppColors.background, borderRadius: BorderRadius.circular(10)),
-          child: Text('$soLuong',
+          child: Text('$_soLuong',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ),
-        _nut(Icons.add, () => _doi(ref, soLuong, 1)),
+        _nut(Icons.add, () => _doi(1)),
         const SizedBox(width: 4),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 20),
           onSelected: (v) {
-            if (v == 'sua') _suaBienThe(context, ref);
-            if (v == 'xoa') _xoaBienThe(context, ref);
+            if (v == 'sua') _suaBienThe(context);
+            if (v == 'xoa') _xoaBienThe(context);
           },
           itemBuilder: (_) => [
             const PopupMenuItem(value: 'sua',
@@ -399,29 +449,34 @@ class _BienTheRow extends ConsumerWidget {
     );
   }
 
-  Future<void> _doi(WidgetRef ref, int cur, int delta) async {
-    final moi = (cur + delta).clamp(0, 9999);
-    await ref.read(khoHangRepoProvider).capNhatSoLuongBienTheKho(khoId, bt['id'] as int, moi);
-    onSLChanged(moi);
-  }
+  Widget _nut(IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 20, color: AppColors.primary),
+        ),
+      );
 
-  Future<void> _suaBienThe(BuildContext ctx, WidgetRef ref) async {
+  Future<void> _suaBienThe(BuildContext ctx) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: ctx,
       builder: (_) => _FormBienTheDialog(
-        initColor: bt['mau_sac'] as String,
-        initSize: bt['kich_co'] as String,
-        initPrice: bt['don_gia'] as int,
+        initColor: widget.bt['mau_sac'] as String,
+        initSize: widget.bt['kich_co'] as String,
+        initPrice: widget.bt['don_gia'] as int,
       ),
     );
     if (result == null) return;
     await ref.read(khoHangRepoProvider).capNhatBienThe(
-        bt['id'] as int, result['color']!, result['size']!, result['price']! as int);
-    onEdited({'mau_sac': result['color'], 'kich_co': result['size'], 'don_gia': result['price']});
-    onChanged();
+        widget.bt['id'] as int, result['color']!, result['size']!, result['price']! as int);
+    widget.onEdited({'mau_sac': result['color'], 'kich_co': result['size'], 'don_gia': result['price']});
+    widget.onChanged();
   }
 
-  Future<void> _xoaBienThe(BuildContext ctx, WidgetRef ref) async {
+  Future<void> _xoaBienThe(BuildContext ctx) async {
     final ok = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
@@ -436,29 +491,10 @@ class _BienTheRow extends ConsumerWidget {
       ),
     );
     if (ok == true) {
-      await ref.read(khoHangRepoProvider).xoaBienThe(bt['id'] as int);
-      onXoa();
+      await ref.read(khoHangRepoProvider).xoaBienThe(widget.bt['id'] as int);
+      widget.onXoa();
     }
   }
-
-  String _ten() {
-    final parts = [
-      if ((bt['mau_sac'] as String).isNotEmpty) bt['mau_sac'],
-      if ((bt['kich_co'] as String).isNotEmpty) bt['kich_co'],
-    ];
-    return parts.isEmpty ? 'Mặc định' : parts.join(' / ');
-  }
-
-  Widget _nut(IconData icon, VoidCallback onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 36, height: 36,
-          decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 20, color: AppColors.primary),
-        ),
-      );
 }
 
 // ── Dialog form biến thể ──────────────────────────────────────────────────────

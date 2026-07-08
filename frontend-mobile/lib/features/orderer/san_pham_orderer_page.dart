@@ -33,7 +33,7 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
       _maCtrl.text = sp.ma;
       _imagePath = sp.anhKey;
       _bienThes = sp.bienThes
-          .map((bt) => _BienTheEdit(id: bt.id, mauSac: bt.mauSac, kichCo: bt.kichCo, gia: bt.gia))
+          .map((bt) => _BienTheEdit(id: bt.id, mauSac: bt.mauSac, kichCo: bt.kichCo, gia: bt.gia, tonKho: bt.tonKho))
           .toList();
     } else {
       _bienThes = [];
@@ -72,7 +72,7 @@ class _FormSanPhamPageState extends ConsumerState<FormSanPhamPage> {
                 'color': bt.mauSac,
                 'size': bt.kichCo,
                 'price': bt.gia,
-                'stock': 0,
+                'stock': bt.tonKho,
               })
           .toList();
       if (widget.edit != null) {
@@ -253,8 +253,9 @@ class _BienTheEdit {
   String mauSac;
   String kichCo;
   int gia;
+  int tonKho;
 
-  _BienTheEdit({this.id, required this.mauSac, required this.kichCo, required this.gia});
+  _BienTheEdit({this.id, required this.mauSac, required this.kichCo, required this.gia, this.tonKho = 0});
 }
 
 // ── Form biến thể ─────────────────────────────────────────────────────────────
@@ -273,6 +274,7 @@ class _BienTheFormState extends State<_BienTheForm> {
   late final TextEditingController _mauCtrl;
   late final TextEditingController _coCtrl;
   late final TextEditingController _giaCtrl;
+  late final TextEditingController _slCtrl;
 
   @override
   void initState() {
@@ -281,6 +283,8 @@ class _BienTheFormState extends State<_BienTheForm> {
     _coCtrl = TextEditingController(text: widget.data.kichCo);
     _giaCtrl = TextEditingController(
         text: widget.data.gia > 0 ? '${widget.data.gia ~/ 1000}' : '');
+    _slCtrl = TextEditingController(
+        text: widget.data.tonKho > 0 ? '${widget.data.tonKho}' : '');
   }
 
   @override
@@ -288,6 +292,7 @@ class _BienTheFormState extends State<_BienTheForm> {
     _mauCtrl.dispose();
     _coCtrl.dispose();
     _giaCtrl.dispose();
+    _slCtrl.dispose();
     super.dispose();
   }
 
@@ -295,7 +300,19 @@ class _BienTheFormState extends State<_BienTheForm> {
     widget.data.mauSac = _mauCtrl.text.trim();
     widget.data.kichCo = _coCtrl.text.trim();
     widget.data.gia = (int.tryParse(_giaCtrl.text) ?? 0) * 1000;
+    widget.data.tonKho = int.tryParse(_slCtrl.text) ?? 0;
   }
+
+  InputDecoration _deco(String label, {String? suffix}) => InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        filled: true,
+        fillColor: AppColors.background,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -320,24 +337,39 @@ class _BienTheFormState extends State<_BienTheForm> {
               child: TextField(
                   controller: _mauCtrl,
                   onChanged: (_) => _sync(),
-                  decoration: AppDeco.input('Màu sắc'))),
+                  decoration: _deco('Màu sắc'))),
           const SizedBox(width: 8),
           SizedBox(
-            width: 100,
+            width: 90,
             child: TextField(
                 controller: _coCtrl,
                 onChanged: (_) => _sync(),
-                decoration: AppDeco.input('Size')),
+                decoration: _deco('Size')),
           ),
         ]),
         const SizedBox(height: 8),
-        TextField(
-          controller: _giaCtrl,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: (_) => _sync(),
-          decoration: AppDeco.input('Giá', suffixText: 'k'),
-        ),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _giaCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => _sync(),
+              decoration: _deco('Giá', suffix: 'k'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _slCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => _sync(),
+              decoration: _deco('Số lượng'),
+            ),
+          ),
+        ]),
       ]),
     );
   }
