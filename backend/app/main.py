@@ -177,6 +177,57 @@ def admin_khoi_tao_kho():
         db.close()
 
 
+@app.post("/admin/khoi-tao-san-pham")
+def admin_khoi_tao_san_pham():
+    """Reset toàn bộ san_pham/bien_the/vi_tri_bien_the, tạo lại 56 sp từ dữ liệu tham chiếu.
+    Mỗi sp: 1 biến thể Đen/40, giá theo tham chiếu, 500 qty ở Kho 1 và 500 qty ở Kho 2."""
+    DU_LIEU = [
+        ('BCRO', 90000), ('BNIKE', 60000), ('CHUCAO', 100000), ('CHUTHAP', 85000),
+        ('DEPLONG', 150000), ('G2186', 240000), ('G5320', 330000), ('G68137', 310000),
+        ('G8820', 360000), ('G8828', 320000), ('G897', 310000), ('G907', 285000),
+        ('G927', 250000), ('G932', 290000), ('G97', 400000), ('GA175', 245000),
+        ('GA176', 265000), ('GA176 N', 260000), ('GA180', 240000), ('GAF1', 295000),
+        ('GIAYNAM', 265000), ('GON532', 330000), ('GS5205', 255000), ('GSAMBA', 180000),
+        ('GTIGE', 295000), ('GV18', 235000), ('H', 65000), ('HOKA1', 120000),
+        ('HOKA2', 175000), ('KCRO', 90000), ('LM23CAO', 75000), ('LM23THAP', 48000),
+        ('LM77', 75000), ('LM78', 75000), ('LOANGNAM', 100000), ('LOANGNU', 100000),
+        ('LONGDEN', 150000), ('LV', 75000), ('MIU', 75000), ('NIKE2', 95000),
+        ('NIKETQ', 85000), ('SAMBA', 180000), ('SDHOKA1', 140000), ('SDHOKA3', 80000),
+        ('SDHOKAXIN', 210000), ('SDU', 120000), ('SO', 150000), ('SRIENG', 60000),
+        ('SRIENGTQ', 80000), ('STE', 75000), ('SUCVIEN', 80000), ('TRONCAO', 100000),
+        ('TRONTHAP', 85000), ('VIENTQ', 88000), ('X', 75000), ('XEAD', 102000),
+    ]
+    from app.models import KhoHang, BienThe, ViTriBienThe, SanPham
+    db = SessionLocal()
+    try:
+        db.query(ViTriBienThe).delete(synchronize_session=False)
+        db.query(BienThe).delete(synchronize_session=False)
+        db.query(SanPham).delete(synchronize_session=False)
+        db.commit()
+        for i in range(1, 5):
+            if not db.query(KhoHang).filter(KhoHang.ten == f"Kho {i}").first():
+                db.add(KhoHang(ten=f"Kho {i}", vi_tri="", ghi_chu=""))
+        db.commit()
+        kho1 = db.query(KhoHang).filter(KhoHang.ten == "Kho 1").first()
+        kho2 = db.query(KhoHang).filter(KhoHang.ten == "Kho 2").first()
+        for ten, gia in DU_LIEU:
+            sp = SanPham(name=ten, code=ten, description="", image_path="")
+            db.add(sp)
+            db.flush()
+            bt = BienThe(product_id=sp.id, color="Đen", size="40", price=gia, stock=1000)
+            db.add(bt)
+            db.flush()
+            db.add(ViTriBienThe(ma_bien_the=bt.id, ma_kho=kho1.id, so_luong=500))
+            db.add(ViTriBienThe(ma_bien_the=bt.id, ma_kho=kho2.id, so_luong=500))
+        db.commit()
+        return {"status": "ok", "san_pham": len(DU_LIEU), "kho_1_id": kho1.id, "kho_2_id": kho2.id}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "detail": str(e)}
+    finally:
+        db.close()
+
+
 @app.post("/admin/import-gia")
 def admin_import_gia():
     """Xóa sản phẩm không có lịch sử đơn, cập nhật giá từ dữ liệu tham chiếu."""
