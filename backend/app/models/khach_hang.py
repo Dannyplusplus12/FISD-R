@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -35,6 +35,6 @@ class LichSuNo(Base):
     new_balance = Column("du_no_sau", Integer, default=0)
     note = Column("ghi_chu", String, default="")
     created_at = Column("thoi_gian", String, default="")
-    created_ts = Column("dau_moc", Integer, default=0)
+    created_ts = Column("dau_moc", BigInteger, default=0)
 
     khach_hang = relationship("KhachHang", back_populates="lich_su_no")

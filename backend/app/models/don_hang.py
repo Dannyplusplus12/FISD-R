@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -10,7 +10,7 @@ class DonHang(Base):
     customer_name = Column("ten_khach_hang", String, default="Khách lẻ")
     customer_id = Column("ma_khach_hang", Integer, ForeignKey("khach_hang.id"), nullable=True)
     created_at = Column("thoi_gian_tao", String, default="")
-    created_ts = Column("dau_moc_tao", Integer, default=0)
+    created_ts = Column("dau_moc_tao", BigInteger, default=0)
     total_amount = Column("tong_tien", Integer, default=0)
     is_draft = Column("la_nhap", Integer, default=0)
     status = Column("trang_thai", String, default="completed")

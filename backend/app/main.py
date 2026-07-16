@@ -47,6 +47,18 @@ def _them_cot_postgres(db):
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}"))
         except Exception:
             pass
+    # Các cột lưu mốc thời gian dạng mili-giây (now_vn_ts) vượt phạm vi INTEGER — nới sang BIGINT
+    ts_columns = [
+        ("tin_nhan", "dau_moc_gui_ts"),
+        ("don_hang", "dau_moc_tao"),
+        ("lich_su_no", "dau_moc"),
+    ]
+    for table, col in ts_columns:
+        try:
+            db.execute(text(f"ALTER TABLE {table} ALTER COLUMN {col} TYPE BIGINT"))
+            db.commit()
+        except Exception:
+            db.rollback()
 
 
 def _add_col_safe(db, sql: str, table: str, col: str):

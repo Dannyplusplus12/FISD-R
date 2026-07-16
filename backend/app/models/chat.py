@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import BigInteger, Column, Integer, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -38,7 +38,7 @@ class TinNhan(Base):
     noi_dung = Column(Text, nullable=True)
     loai_tin = Column(String, default="text")  # "text" | "anh" | "tep" | "he_thong"
     thoi_gian_gui = Column(String, default="")
-    dau_moc_gui_ts = Column(Integer, default=0)
+    dau_moc_gui_ts = Column(BigInteger, default=0)
 
     kenh_chat = relationship("KenhChat", back_populates="tin_nhans")
     tep_dinh_kems = relationship("TepDinhKem", back_populates="tin_nhan", cascade="all, delete-orphan")
