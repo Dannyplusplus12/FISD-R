@@ -575,7 +575,17 @@ def lay_pickers_don(don_id: int, db: Session = Depends(get_db)):
 @router.get("/don-hang/da-nhan")
 def lay_don_da_nhan(picker_id: int, db: Session = Depends(get_db)):
     try:
-        don_hang = db.query(DonHang).filter(DonHang.status == "assigned", DonHang.assigned_picker_id == picker_id).order_by(desc(DonHang.created_ts)).all()
+        don_hang = (
+            db.query(DonHang)
+            .outerjoin(DonHangPicker, DonHangPicker.ma_don_hang == DonHang.id)
+            .filter(
+                DonHang.status == "assigned",
+                (DonHang.assigned_picker_id == picker_id) | (DonHangPicker.ma_nhan_vien == picker_id),
+            )
+            .order_by(desc(DonHang.created_ts))
+            .distinct()
+            .all()
+        )
         return {"data": [_serialize_don(don) for don in don_hang], "count": len(don_hang)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
