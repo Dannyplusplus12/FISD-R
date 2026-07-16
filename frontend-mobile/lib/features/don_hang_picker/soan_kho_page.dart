@@ -387,30 +387,24 @@ class _SoanKhoPageState extends ConsumerState<SoanKhoPage> {
                     ),
                   ),
                 ),
-            ]),
-          ),
-        ),
-
-        // Nút thêm shipper / chat — 20% chiều cao màn hình, góc trên-trái, tách biệt top bar
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.2,
-          left: 16,
-          child: SafeArea(
-            child: GestureDetector(
-              onTap: coNhieuPicker ? _moKenhDonHang : _moThemPicker,
-              child: Container(
-                width: 46, height: 46,
-                decoration: BoxDecoration(
-                  color: coNhieuPicker ? Colors.blueAccent.withOpacity(0.85) : Colors.black54,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white30),
-                ),
-                child: Icon(
-                  coNhieuPicker ? Icons.chat_bubble_outline : Icons.person_add_alt_1_outlined,
-                  color: Colors.white, size: 22,
+              const SizedBox(width: 8),
+              // Thêm shipper / mở chat đơn — cùng hàng top bar, cùng style nút X/layers
+              GestureDetector(
+                onTap: coNhieuPicker ? _moKenhDonHang : _moThemPicker,
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: coNhieuPicker ? Colors.blueAccent.withOpacity(0.85) : Colors.black54,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: Icon(
+                    coNhieuPicker ? Icons.chat_bubble_outline : Icons.person_add_alt_1_outlined,
+                    color: Colors.white, size: 18,
+                  ),
                 ),
               ),
-            ),
+            ]),
           ),
         ),
 

@@ -81,6 +81,13 @@ def _them_nguoi_vao_don_va_kenh(don_id: int, picker_id: int, nguoi_them_id: int,
         raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
     if don.status != "assigned":
         raise HTTPException(status_code=400, detail="Chỉ thêm picker cho đơn đang giao")
+    if don.assigned_picker_id and not _la_picker_cua_don(don_id, don.assigned_picker_id, db):
+        # Đơn nhận trước khi có tính năng multi-picker chưa có bản ghi picker chính — bù lại
+        db.add(DonHangPicker(
+            ma_don_hang=don_id, ma_nhan_vien=don.assigned_picker_id, la_nguoi_nhan_dau=1,
+            thoi_gian_them=don.assigned_at or now_vn().strftime("%Y-%m-%d %H:%M"),
+        ))
+        db.flush()
     if not _la_picker_cua_don(don_id, nguoi_them_id, db):
         nguoi_them = db.query(NhanVien).filter(NhanVien.id == nguoi_them_id).first()
         if not nguoi_them or nguoi_them.role != "manager":
