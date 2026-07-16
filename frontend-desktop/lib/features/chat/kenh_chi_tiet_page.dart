@@ -110,7 +110,7 @@ class _KenhChiTietPageState extends ConsumerState<KenhChiTietPage> {
   }
 
   Future<void> _guiTep() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.pickFiles(allowMultiple: true);
     if (result == null || result.files.isEmpty) return;
     final files = result.files
         .where((f) => f.path != null)
