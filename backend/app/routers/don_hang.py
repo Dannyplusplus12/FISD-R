@@ -12,10 +12,14 @@ from sqlalchemy.orm import Session
 from app import s3
 from app.core.config import settings
 from app.database import get_db, SessionLocal
-from app.models import BienThe, ChiTietDon, DonHang, KhachHang, KhuVuc, NhanVien, ViTriBienThe, KhoHang, SanPham
+from app.models import (
+    BienThe, ChiTietDon, DonHang, DonHangPicker, KenhChat, KhachHang, KhuVuc,
+    NhanVien, SoanKhoTrangThai, ThanhVienKenh, ViTriBienThe, KhoHang, SanPham,
+)
+from app.realtime import quan_ly_ket_noi
 from app.schemas.don_hang import (
     CapNhatNgayDon, XacNhanGiaoItem, XacNhanLocalAnh,
-    YeuCauGiaoHang, YeuCauNhanDon, YeuCauThanhToan, YeuCauXacNhanGiao,
+    YeuCauGiaoHang, YeuCauNhanDon, YeuCauThanhToan, YeuCauThemPicker, YeuCauXacNhanGiao,
 )
 from app.utils import now_vn, now_vn_ts, parse_duong_dan_anh
 
@@ -40,6 +44,66 @@ def _luu_anh_giao_hang(don_id: int, file: UploadFile) -> str:
 def _lay_khu_vuc_mac_dinh(db: Session):
     kv = db.query(KhuVuc).order_by(KhuVuc.id).first()
     return kv.id if kv else None
+
+
+def _la_picker_cua_don(don_id: int, nhan_vien_id: int, db: Session) -> bool:
+    return db.query(DonHangPicker).filter(
+        DonHangPicker.ma_don_hang == don_id, DonHangPicker.ma_nhan_vien == nhan_vien_id
+    ).first() is not None
+
+
+def _dam_bao_kenh_don_hang(don: DonHang, db: Session) -> KenhChat:
+    """Lấy hoặc tạo kênh chat tự động gắn với đơn hàng, đảm bảo mọi picker hiện tại của đơn đều là thành viên."""
+    kenh = db.query(KenhChat).filter(KenhChat.ma_don_hang == don.id, KenhChat.loai == "kenh_don_hang").first()
+    if not kenh:
+        kenh = KenhChat(
+            ten=f"Đơn #{don.id}", loai="kenh_don_hang", ma_don_hang=don.id,
+            ma_chu_kenh=don.assigned_picker_id, thoi_gian_tao=now_vn().strftime("%Y-%m-%d %H:%M"),
+        )
+        db.add(kenh)
+        db.flush()
+    pickers = db.query(DonHangPicker).filter(DonHangPicker.ma_don_hang == don.id).all()
+    for p in pickers:
+        da_co = db.query(ThanhVienKenh).filter(
+            ThanhVienKenh.ma_kenh == kenh.id, ThanhVienKenh.ma_nhan_vien == p.ma_nhan_vien
+        ).first()
+        if not da_co:
+            db.add(ThanhVienKenh(
+                ma_kenh=kenh.id, ma_nhan_vien=p.ma_nhan_vien,
+                thoi_gian_tham_gia=now_vn().strftime("%Y-%m-%d %H:%M"),
+            ))
+    return kenh
+
+
+def _them_nguoi_vao_don_va_kenh(don_id: int, picker_id: int, nguoi_them_id: int, db: Session) -> dict:
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
+    if don.status != "assigned":
+        raise HTTPException(status_code=400, detail="Chỉ thêm picker cho đơn đang giao")
+    if not _la_picker_cua_don(don_id, nguoi_them_id, db):
+        nguoi_them = db.query(NhanVien).filter(NhanVien.id == nguoi_them_id).first()
+        if not nguoi_them or nguoi_them.role != "manager":
+            raise HTTPException(status_code=403, detail="Chỉ picker của đơn hoặc quản lý mới được thêm người")
+    picker = db.query(NhanVien).filter(NhanVien.id == picker_id).first()
+    if not picker or picker.role not in ("picker", "manager"):
+        raise HTTPException(status_code=400, detail="Picker không hợp lệ")
+    if _la_picker_cua_don(don_id, picker_id, db):
+        raise HTTPException(status_code=400, detail="Người này đã ở trong đơn")
+    db.add(DonHangPicker(
+        ma_don_hang=don_id, ma_nhan_vien=picker_id, la_nguoi_nhan_dau=0,
+        thoi_gian_them=now_vn().strftime("%Y-%m-%d %H:%M"),
+    ))
+    db.flush()
+    kenh = _dam_bao_kenh_don_hang(don, db)
+    db.commit()
+
+    thanh_vien_ids = [tv.ma_nhan_vien for tv in db.query(ThanhVienKenh).filter(ThanhVienKenh.ma_kenh == kenh.id).all()]
+    quan_ly_ket_noi.broadcast_sync(thanh_vien_ids, {
+        "type": "order_picker_added",
+        "data": {"don_id": don_id, "picker_id": picker_id, "picker_name": picker.name, "kenh_id": kenh.id},
+    })
+    return {"status": "ok", "kenh_id": kenh.id, "picker_id": picker_id, "picker_name": picker.name}
 
 
 def _serialize_don(don: DonHang) -> dict:
@@ -83,6 +147,10 @@ def _serialize_don(don: DonHang) -> dict:
         "delivery_photo_path": (don.delivery_photo_path or ""),
         "delivery_photo_paths": anh_paths,
         "items": chi_tiet,
+        "pickers": [
+            {"id": p.ma_nhan_vien, "name": (p.nhan_vien.name if p.nhan_vien else ""), "la_chinh": bool(p.la_nguoi_nhan_dau)}
+            for p in (don.pickers or [])
+        ],
     }
 
 
@@ -459,6 +527,10 @@ def nhan_don(don_id: int, data: YeuCauNhanDon, db: Session = Depends(get_db)):
         if not picker or picker.role not in ("picker", "manager"):
             raise HTTPException(status_code=400, detail="Picker không hợp lệ")
         don.status, don.assigned_picker_id, don.assigned_at = "assigned", picker.id, now_vn().strftime("%Y-%m-%d %H:%M")
+        db.add(DonHangPicker(
+            ma_don_hang=don.id, ma_nhan_vien=picker.id, la_nguoi_nhan_dau=1,
+            thoi_gian_them=don.assigned_at,
+        ))
         db.commit()
         return {"status": "success", "message": f"Đã nhận đơn #{don_id}"}
     except HTTPException:
@@ -467,6 +539,30 @@ def nhan_don(don_id: int, data: YeuCauNhanDon, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/don-hang/{don_id}/them-picker")
+def them_picker(don_id: int, data: YeuCauThemPicker, db: Session = Depends(get_db)):
+    try:
+        ket_qua = _them_nguoi_vao_don_va_kenh(don_id, data.picker_id, data.nguoi_them_id, db)
+        return ket_qua
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/don-hang/{don_id}/pickers")
+def lay_pickers_don(don_id: int, db: Session = Depends(get_db)):
+    don = db.query(DonHang).filter(DonHang.id == don_id).first()
+    if not don:
+        raise HTTPException(status_code=404, detail="Đơn hàng không tồn tại")
+    return [
+        {"id": p.ma_nhan_vien, "name": (p.nhan_vien.name if p.nhan_vien else ""), "la_chinh": bool(p.la_nguoi_nhan_dau)}
+        for p in don.pickers
+    ]
 
 
 @router.get("/don-hang/da-nhan")
@@ -585,14 +681,16 @@ def _giao_hang_noi_bo(don_id: int, picker_id: int, photo_keys: list, items: list
 
 
 @router.put("/don-hang/{don_id}/xac-nhan")
-def xac_nhan_don(don_id: int, data: Optional[YeuCauXacNhanGiao] = None, db: Session = Depends(get_db)):
+def xac_nhan_don(don_id: int, data: YeuCauXacNhanGiao, db: Session = Depends(get_db)):
     try:
         don = db.query(DonHang).filter(DonHang.id == don_id).first()
         if not don:
             raise HTTPException(status_code=404)
         if don.status not in ("assigned",):
             raise HTTPException(status_code=400, detail="Chỉ xác nhận đơn đã được nhận")
-        return _xac_nhan_giao_logic(don, data.items if data else None, db)
+        if don.assigned_picker_id != data.picker_id:
+            raise HTTPException(status_code=403, detail="Chỉ picker chính mới được xác nhận đơn")
+        return _xac_nhan_giao_logic(don, data.items, db)
     except HTTPException:
         db.rollback()
         raise
@@ -646,6 +744,7 @@ def chi_tiet_soan_kho(don_id: int, db: Session = Depends(get_db)):
                         "vi_tri": row.kho_hang.vi_tri or "",
                         "so_luong": int(row.so_luong or 0),
                     })
+        trang_thai = db.query(SoanKhoTrangThai).filter(SoanKhoTrangThai.ma_chi_tiet_don == ct.id).first()
         items.append({
             "order_item_id": ct.id,
             "product_name": ct.product_name,
@@ -655,8 +754,17 @@ def chi_tiet_soan_kho(don_id: int, db: Session = Depends(get_db)):
             "price": int(ct.price or 0),
             "image": image,
             "warehouses": warehouses,
+            "selected_kho_id": trang_thai.ma_kho if trang_thai else None,
+            "selected_qty": int(trang_thai.so_luong_chon or 0) if trang_thai else 0,
+            "updated_by": trang_thai.cap_nhat_boi if trang_thai else None,
         })
-    return {"id": don.id, "customer_name": don.customer_name or "Khách lẻ", "items": items}
+    return {
+        "id": don.id, "customer_name": don.customer_name or "Khách lẻ", "items": items,
+        "pickers": [
+            {"id": p.ma_nhan_vien, "name": (p.nhan_vien.name if p.nhan_vien else ""), "la_chinh": bool(p.la_nguoi_nhan_dau)}
+            for p in don.pickers
+        ],
+    }
 
 
 @router.get("/don-hang/{don_id}/trang-thai")

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../chat/danh_sach_kenh_page.dart';
 import 'don_hang_orderer_page.dart';
 import 'kho_orderer_page.dart';
 import 'khach_hang_orderer_page.dart';
@@ -25,6 +26,7 @@ class _TrangChuOrdererPageState extends ConsumerState<TrangChuOrdererPage> {
       const KhoOrdererPage(),
       KhachHangOrdererPage(phien: widget.phien),
       PhanTichPage(phien: widget.phien),
+      DanhSachKenhPage(phien: widget.phien),
     ];
 
     return Scaffold(
@@ -54,6 +56,11 @@ class _TrangChuOrdererPageState extends ConsumerState<TrangChuOrdererPage> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart, color: AppColors.primary),
             label: 'Phân tích',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble, color: AppColors.primary),
+            label: 'Chat',
           ),
         ],
       ),

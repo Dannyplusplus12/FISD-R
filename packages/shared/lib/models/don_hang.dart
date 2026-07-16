@@ -35,6 +35,20 @@ class ChiTietDon {
   int get thanhTien => soLuong * donGia;
 }
 
+class PickerDon {
+  final int id;
+  final String ten;
+  final bool laChinh;
+
+  const PickerDon({required this.id, required this.ten, required this.laChinh});
+
+  factory PickerDon.fromJson(Map<String, dynamic> j) => PickerDon(
+        id: j['id'] as int,
+        ten: (j['name'] ?? '').toString(),
+        laChinh: j['la_chinh'] == true,
+      );
+}
+
 class DonHang {
   final int id;
   final String ngayTao;
@@ -46,8 +60,7 @@ class DonHang {
   final String ghiChuPicker;
   final int? nhanVienTaoId;
   final String tenNhanVienTao;
-  final int? pickerId;
-  final String tenPicker;
+  final List<PickerDon> pickers;
   final String ngayNhan;
   final int? nhanVienGiaoId;
   final String tenNhanVienGiao;
@@ -66,8 +79,7 @@ class DonHang {
     this.ghiChuPicker = '',
     this.nhanVienTaoId,
     this.tenNhanVienTao = '',
-    this.pickerId,
-    this.tenPicker = '',
+    this.pickers = const [],
     this.ngayNhan = '',
     this.nhanVienGiaoId,
     this.tenNhanVienGiao = '',
@@ -75,6 +87,13 @@ class DonHang {
     this.anhGiaoHang = const [],
     required this.chiTiets,
   });
+
+  // Tương thích ngược cho code cũ chỉ biết 1 picker chính — dùng `pickers` cho đơn nhiều picker.
+  PickerDon? get _pickerChinh => pickers.isEmpty
+      ? null
+      : pickers.firstWhere((p) => p.laChinh, orElse: () => pickers.first);
+  int? get pickerId => _pickerChinh?.id;
+  String get tenPicker => _pickerChinh?.ten ?? '';
 
   factory DonHang.fromJson(Map<String, dynamic> j) => DonHang(
         id: j['id'] as int,
@@ -87,8 +106,9 @@ class DonHang {
         ghiChuPicker: (j['picker_note'] ?? '').toString(),
         nhanVienTaoId: j['created_by_employee_id'] as int?,
         tenNhanVienTao: (j['created_by_employee_name'] ?? '').toString(),
-        pickerId: j['assigned_picker_id'] as int?,
-        tenPicker: (j['assigned_picker_name'] ?? '').toString(),
+        pickers: (j['pickers'] as List? ?? [])
+            .map((p) => PickerDon.fromJson(p as Map<String, dynamic>))
+            .toList(),
         ngayNhan: (j['assigned_at'] ?? '').toString(),
         nhanVienGiaoId: j['delivered_by_id'] as int?,
         tenNhanVienGiao: (j['delivered_by_name'] ?? '').toString(),

@@ -408,12 +408,13 @@ class _DonDaNhan extends ConsumerWidget {
   }
 
   Future<void> _moGiaoHang(BuildContext ctx, WidgetRef ref, Map don) async {
+    final pickers = (don['pickers'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
     await Navigator.push(
         ctx,
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) =>
-              SoanKhoPage(donId: don['id'] as int, phien: phien),
+              SoanKhoPage(donId: don['id'] as int, phien: phien, initialPickers: pickers),
         ));
     ref.invalidate(donDaNhanProvider(phien.id));
     ref.invalidate(donDaDuyetProvider);

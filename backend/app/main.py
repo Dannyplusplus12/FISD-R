@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.database import Base, engine, SessionLocal
-from app.routers import san_pham, nhan_vien, khach_hang, don_hang, bao_cao, lenh_nhanh, kho_hang
+from app.routers import san_pham, nhan_vien, khach_hang, don_hang, bao_cao, lenh_nhanh, kho_hang, soan_kho, chat, websocket_chat
 
 
 def _khoi_tao_db():
@@ -117,6 +117,9 @@ def _seed_kho_hang():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _khoi_tao_db()
+    import asyncio
+    from app.realtime import quan_ly_ket_noi
+    quan_ly_ket_noi.dat_loop(asyncio.get_running_loop())
     yield
 
 
@@ -146,6 +149,9 @@ app.include_router(don_hang.anh_router)
 app.include_router(bao_cao.router)
 app.include_router(lenh_nhanh.router)
 app.include_router(kho_hang.router)
+app.include_router(soan_kho.router)
+app.include_router(chat.router)
+app.include_router(websocket_chat.router)
 
 
 @app.post("/admin/khoi-tao-kho")

@@ -9,6 +9,7 @@ import '../features/khach_hang/khach_hang_page.dart';
 import '../features/nhan_vien/nhan_vien_page.dart';
 import '../features/phan_tich/phan_tich_page.dart';
 import '../features/xuat_hang/xuat_hang_page.dart';
+import '../features/chat/danh_sach_kenh_page.dart';
 import 'thanh_ben.dart';
 
 const _mucMenu = <MucDieuHuong>[
@@ -19,6 +20,7 @@ const _mucMenu = <MucDieuHuong>[
   MucDieuHuong(nhan: 'Khách Hàng', bieu_tuong: Icons.people_outline, trang: KhachHangPage()),
   MucDieuHuong(nhan: 'Nhân Viên', bieu_tuong: Icons.badge_outlined, trang: NhanVienPage()),
   MucDieuHuong(nhan: 'Phân tích', bieu_tuong: Icons.bar_chart_outlined, trang: PhanTichPage()),
+  MucDieuHuong(nhan: 'Chat', bieu_tuong: Icons.chat_bubble_outline, trang: DanhSachKenhPage()),
 ];
 
 class KhungApp extends ConsumerStatefulWidget {

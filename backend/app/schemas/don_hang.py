@@ -29,11 +29,17 @@ class XacNhanGiaoItem(BaseModel):
 
 
 class YeuCauXacNhanGiao(BaseModel):
+    picker_id: int
     items: Optional[List[XacNhanGiaoItem]] = None
 
 
 class YeuCauNhanDon(BaseModel):
     picker_id: int
+
+
+class YeuCauThemPicker(BaseModel):
+    picker_id: int
+    nguoi_them_id: int
 
 
 class YeuCauGiaoHang(BaseModel):

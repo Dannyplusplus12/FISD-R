@@ -85,4 +85,27 @@ class ApiEndpoints {
   static String ghiChuPickerDon(int id) => '/don-hang/$id/ghi-chu-picker';
   static String themAnhDon(int id) => '/don-hang/$id/them-anh';
   static String xoaAnhDon(int id) => '/don-hang/$id/xoa-anh';
+
+  // Multi-picker
+  static String themPickerDon(int id) => '/don-hang/$id/them-picker';
+  static String pickersDon(int id) => '/don-hang/$id/pickers';
+
+  // Soạn kho — cập nhật kho/số lượng theo mặt hàng (đồng bộ realtime giữa các picker)
+  static String capNhatMucSoan(int donId, int orderItemId) => '/don-hang/$donId/soan/muc/$orderItemId';
+
+  // Chat
+  static const String kenhChats = '/kenh-chat';
+  static String kenhChat(int id) => '/kenh-chat/$id';
+  static String thanhVienKenh(int id) => '/kenh-chat/$id/thanh-vien';
+  static String xoaThanhVienKenh(int kenhId, int nvId) => '/kenh-chat/$kenhId/thanh-vien/$nvId';
+  static String tinNhanKenh(int id) => '/kenh-chat/$id/tin-nhan';
+
+  // WebRTC
+  static const String turnCredentials = '/rtc/turn-credentials';
+
+  // Realtime WebSocket — đổi scheme https/http -> wss/ws
+  static String wsRealtime(String baseUrl, int nhanVienId) {
+    final wsBase = baseUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://');
+    return '$wsBase/ws/realtime?nhan_vien_id=$nhanVienId';
+  }
 }

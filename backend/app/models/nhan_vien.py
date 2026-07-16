@@ -20,3 +20,4 @@ class NhanVien(Base):
     don_hang_tao = relationship("DonHang", foreign_keys="DonHang.created_by_employee_id", back_populates="nguoi_tao")
     don_hang_nhan = relationship("DonHang", foreign_keys="DonHang.assigned_picker_id", back_populates="picker")
     don_hang_giao = relationship("DonHang", foreign_keys="DonHang.delivered_by_id", back_populates="nguoi_giao")
+    don_hang_phu = relationship("DonHangPicker", foreign_keys="DonHangPicker.ma_nhan_vien", back_populates="nhan_vien")

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/session/phien_lam_viec.dart';
+import '../chat/danh_sach_kenh_page.dart';
 import '../don_hang_picker/don_hang_picker_page.dart';
 import '../kho_hang/kho_hang_page.dart';
 import '../lich_su/lich_su_page.dart';
@@ -39,6 +40,7 @@ class _PickerShellState extends State<_PickerShell> {
       DonHangPickerPage(phien: widget.phien),
       const KhoHangPage(),
       LichSuPage(phien: widget.phien),
+      DanhSachKenhPage(phien: widget.phien),
     ];
 
     return Scaffold(
@@ -63,6 +65,11 @@ class _PickerShellState extends State<_PickerShell> {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history, color: Color(0xFF1A1A2E)),
             label: 'Lịch sử',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble, color: Color(0xFF1A1A2E)),
+            label: 'Chat',
           ),
         ],
       ),

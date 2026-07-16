@@ -28,6 +28,7 @@ class DonHang(Base):
     picker = relationship("NhanVien", foreign_keys=[assigned_picker_id], back_populates="don_hang_nhan")
     nguoi_giao = relationship("NhanVien", foreign_keys=[delivered_by_id], back_populates="don_hang_giao")
     chi_tiet = relationship("ChiTietDon", back_populates="don_hang", cascade="all, delete-orphan")
+    pickers = relationship("DonHangPicker", back_populates="don_hang", cascade="all, delete-orphan")
 
 
 class ChiTietDon(Base):

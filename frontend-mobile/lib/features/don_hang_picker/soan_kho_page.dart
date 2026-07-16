@@ -1,83 +1,150 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
+import '../../core/realtime/realtime_socket.dart';
 import '../../core/session/phien_lam_viec.dart';
+import '../chat/chat_provider.dart';
+import '../chat/chat_repository.dart';
+import '../chat/kenh_chi_tiet_page.dart';
 import 'draft_helper.dart';
 import 'package:fisd_shared/fisd_shared.dart';
 
-class SoanKhoPage extends StatefulWidget {
+class SoanKhoPage extends ConsumerStatefulWidget {
   final int donId;
   final PhienLamViec phien;
+  final List<Map<String, dynamic>> initialPickers;
 
-  const SoanKhoPage({super.key, required this.donId, required this.phien});
+  const SoanKhoPage({super.key, required this.donId, required this.phien, this.initialPickers = const []});
 
   @override
-  State<SoanKhoPage> createState() => _SoanKhoPageState();
+  ConsumerState<SoanKhoPage> createState() => _SoanKhoPageState();
 }
 
-class _SoanKhoPageState extends State<SoanKhoPage> {
+class _SoanKhoPageState extends ConsumerState<SoanKhoPage> {
   DraftSoanKho? _draft;
   bool _loading = true;
   bool _hienOverlay = true;
   late PageController _pageCtrl;
   int _trangHienTai = 0;
   bool _dangGui = false;
+  late List<Map<String, dynamic>> _pickers;
   final _ghiChuCtrl = TextEditingController();
+  RealtimeSocket? _socket;
+  Function? _huyLangNghe;
 
   @override
   void initState() {
     super.initState();
     _pageCtrl = PageController();
+    _pickers = List<Map<String, dynamic>>.from(widget.initialPickers);
     _taiDraft();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _dangKyLangNghe());
+  }
+
+  void _dangKyLangNghe() {
+    _socket = ref.read(realtimeSocketProvider);
+    _socket!.ketNoi(widget.phien.id);
+    final sub = _socket!.messages.listen((msg) {
+      if (!mounted) return;
+      final data = msg['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+      if (msg['type'] == 'soan_kho_update' && data['don_id'] == widget.donId) {
+        _apDungCapNhatTuXa(data);
+      } else if (msg['type'] == 'order_picker_added' && data['don_id'] == widget.donId) {
+        setState(() {
+          if (!_pickers.any((p) => p['id'] == data['picker_id'])) {
+            _pickers.add({'id': data['picker_id'], 'name': data['picker_name'], 'la_chinh': false});
+          }
+        });
+      }
+    });
+    _huyLangNghe = sub.cancel;
+  }
+
+  void _apDungCapNhatTuXa(Map<String, dynamic> data) {
+    final draft = _draft;
+    if (draft == null) return;
+    final item = draft.items.where((i) => i.orderItemId == data['order_item_id']);
+    if (item.isEmpty) return;
+    final it = item.first;
+    setState(() {
+      it.selectedKhoId = data['ma_kho'] as int?;
+      it.pickedQty = (data['so_luong_chon'] as num?)?.toInt() ?? it.pickedQty;
+      if (it.selectedKhoId != null) {
+        final match = it.warehouses.where((w) => w['id'] == it.selectedKhoId);
+        it.selectedKhoTen = match.isNotEmpty ? match.first['ten'] as String? : null;
+      } else {
+        it.selectedKhoTen = null;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _huyLangNghe?.call();
     _pageCtrl.dispose();
     _ghiChuCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _taiDraft() async {
-    // Thử load draft đã lưu
-    var draft = await DraftSoanKho.tai(widget.donId);
-    if (draft == null) {
-      // Fetch từ API
-      try {
-        final res = await ApiClient.dio.get(ApiEndpoints.soanKho(widget.donId));
-        final data = res.data as Map<String, dynamic>;
-        final items = (data['items'] as List)
-            .map((i) => DraftItem.fromApi(i as Map<String, dynamic>))
-            .toList();
-        draft = DraftSoanKho(
-          orderId: widget.donId,
-          customerName: (data['customer_name'] ?? '').toString(),
-          items: items,
-        );
-        await draft.luu();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi tải đơn: $e'), backgroundColor: Colors.red));
-          Navigator.pop(context);
-        }
-        return;
+    try {
+      final res = await ApiClient.dio.get(ApiEndpoints.soanKho(widget.donId));
+      final data = res.data as Map<String, dynamic>;
+      final items = (data['items'] as List)
+          .map((i) => DraftItem.fromApi(i as Map<String, dynamic>))
+          .toList();
+      final local = await DraftSoanKho.taiLocal(widget.donId);
+      final draft = DraftSoanKho(
+        orderId: widget.donId,
+        customerName: (data['customer_name'] ?? '').toString(),
+        items: items,
+        ghiChu: (local?['ghi_chu'] as String?) ?? '',
+        anhPaths: (local?['anh_paths'] as List?)?.cast<String>() ?? [],
+      );
+      if (widget.initialPickers.isEmpty && data['pickers'] is List) {
+        _pickers = List<Map<String, dynamic>>.from(data['pickers'] as List);
       }
-    }
-    if (mounted) {
-      setState(() {
-        _draft = draft;
-        _ghiChuCtrl.text = draft!.ghiChu;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _draft = draft;
+          _ghiChuCtrl.text = draft.ghiChu;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi tải đơn: $e'), backgroundColor: Colors.red));
+        Navigator.pop(context);
+      }
     }
   }
 
-  Future<void> _luuDraft() async {
+  Future<void> _luuDraftLocal() async {
     if (_draft == null) return;
     _draft!.ghiChu = _ghiChuCtrl.text;
     await _draft!.luu();
+  }
+
+  Future<void> _capNhatMucSoan(DraftItem item) async {
+    try {
+      await ApiClient.dio.put(
+        ApiEndpoints.capNhatMucSoan(widget.donId, item.orderItemId),
+        data: {
+          'ma_kho': item.selectedKhoId,
+          'so_luong_chon': item.pickedQty,
+          'nhan_vien_id': widget.phien.id,
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi cập nhật kho: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _chupAnh() async {
@@ -87,7 +154,7 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
     setState(() {
       _draft!.anhPaths.addAll(picked.map((x) => x.path));
     });
-    await _luuDraft();
+    await _luuDraftLocal();
   }
 
   Future<void> _chupCamera() async {
@@ -95,18 +162,17 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
     final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
     if (picked == null) return;
     setState(() => _draft!.anhPaths.add(picked.path));
-    await _luuDraft();
+    await _luuDraftLocal();
   }
 
   Future<void> _xoaAnh(int idx) async {
     setState(() => _draft!.anhPaths.removeAt(idx));
-    await _luuDraft();
+    await _luuDraftLocal();
   }
 
   Future<void> _xacNhanGiao(BuildContext ctx) async {
     if (_draft == null) return;
 
-    // Kiểm tra tất cả mặt hàng đã chọn kho
     final chuaChonIdx = _draft!.items.indexWhere((i) => i.selectedKhoId == null);
     if (chuaChonIdx >= 0) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
@@ -119,6 +185,14 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
 
     if (_draft!.anhPaths.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Cần ít nhất 1 ảnh xác nhận'), backgroundColor: Colors.orange));
+      return;
+    }
+
+    final laPickerChinh = _pickers.any((p) => p['id'] == widget.phien.id && p['la_chinh'] == true);
+    if (_pickers.isNotEmpty && !laPickerChinh) {
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+          content: Text('Chỉ picker chính (người đã nhận đơn) mới được xác nhận đơn'),
+          backgroundColor: Colors.orange));
       return;
     }
 
@@ -153,6 +227,73 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
     }
   }
 
+  Future<void> _moThemPicker() async {
+    final nhanVienList = await ref.read(danhSachNhanVienProvider.future);
+    final daCoIds = _pickers.map((p) => p['id']).toSet();
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text('Thêm shipper vào đơn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          ),
+          ...nhanVienList
+              .where((nv) => nv.vaiTro == 'picker' && !daCoIds.contains(nv.id))
+              .map((nv) => ListTile(
+                    title: Text(nv.ten, style: const TextStyle(color: Colors.white)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await ApiClient.dio.post(ApiEndpoints.themPickerDon(widget.donId), data: {
+                          'picker_id': nv.id,
+                          'nguoi_them_id': widget.phien.id,
+                        });
+                        if (mounted) {
+                          setState(() => _pickers.add({'id': nv.id, 'name': nv.ten, 'la_chinh': false}));
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+                        }
+                      }
+                    },
+                  )),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _moKenhDonHang() async {
+    try {
+      final kenhs = await ref.read(chatRepositoryProvider).layDanhSachKenh(widget.phien.id);
+      final match = kenhs.where((k) => k.maDonHang == widget.donId);
+      if (match.isEmpty || !mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => FractionallySizedBox(
+          heightFactor: 0.88,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: KenhChiTietPage(kenh: match.first, phien: widget.phien),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi mở kênh chat: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -160,6 +301,7 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
     }
     final draft = _draft!;
     final tongTrang = draft.items.length + 1; // items + trang xác nhận
+    final coNhieuPicker = _pickers.length > 1;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -170,16 +312,16 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
           itemCount: tongTrang,
           onPageChanged: (i) async {
             setState(() => _trangHienTai = i);
-            await _luuDraft();
+            await _luuDraftLocal();
           },
           itemBuilder: (_, i) {
             if (i < draft.items.length) {
               return _ItemPage(
                 item: draft.items[i],
                 hienOverlay: _hienOverlay,
-                onChanged: () async {
+                onChanged: () {
                   setState(() {});
-                  await _luuDraft();
+                  _capNhatMucSoan(draft.items[i]);
                 },
               );
             }
@@ -246,6 +388,29 @@ class _SoanKhoPageState extends State<SoanKhoPage> {
                   ),
                 ),
             ]),
+          ),
+        ),
+
+        // Nút thêm shipper / chat — 20% chiều cao màn hình, góc trên-trái, tách biệt top bar
+        Positioned(
+          top: MediaQuery.of(context).size.height * 0.2,
+          left: 16,
+          child: SafeArea(
+            child: GestureDetector(
+              onTap: coNhieuPicker ? _moKenhDonHang : _moThemPicker,
+              child: Container(
+                width: 46, height: 46,
+                decoration: BoxDecoration(
+                  color: coNhieuPicker ? Colors.blueAccent.withOpacity(0.85) : Colors.black54,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white30),
+                ),
+                child: Icon(
+                  coNhieuPicker ? Icons.chat_bubble_outline : Icons.person_add_alt_1_outlined,
+                  color: Colors.white, size: 22,
+                ),
+              ),
+            ),
           ),
         ),
 

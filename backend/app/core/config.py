@@ -28,8 +28,16 @@ class Settings:
     # Max size per photo upload (MB)
     MAX_DELIVERY_PHOTO_MB: int = int(os.environ.get("MAX_DELIVERY_PHOTO_MB", "8"))
 
+    # Max size per file/ảnh đính kèm chat (MB)
+    MAX_CHAT_FILE_MB: int = int(os.environ.get("MAX_CHAT_FILE_MB", "25"))
+
     # Groq AI API key (dùng cho tính năng Lệnh nhanh)
     GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
+
+    # TURN server (coturn tự host trên Railway) — dùng cho WebRTC call/screen-share
+    TURN_SECRET: str = os.environ.get("TURN_SECRET", "")
+    TURN_REALM: str = os.environ.get("TURN_REALM", "fisd.local")
+    TURN_URL: str = os.environ.get("TURN_URL", "")
 
 
 settings = Settings()

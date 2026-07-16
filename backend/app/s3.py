@@ -24,8 +24,9 @@ def _client():
     )
 
 
-def upload_bytes(data: bytes, key: str, ext: str = "jpg") -> str:
-    content_type = _CONTENT_TYPE_MAP.get(ext.lstrip(".").lower(), "image/jpeg")
+def upload_bytes(data: bytes, key: str, ext: str = "jpg", content_type: str = None) -> str:
+    if not content_type:
+        content_type = _CONTENT_TYPE_MAP.get(ext.lstrip(".").lower(), "application/octet-stream")
     _client().put_object(
         Bucket=settings.S3_BUCKET,
         Key=key,
