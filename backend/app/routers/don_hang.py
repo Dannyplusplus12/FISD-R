@@ -467,6 +467,11 @@ def duyet_don(don_id: int, db: Session = Depends(get_db)):
                 bt.stock = int(bt.stock or 0) - int(ct.quantity or 0)
         don.status, don.is_draft = "approved", 1
         db.commit()
+        picker_ids = [p.id for p in db.query(NhanVien).filter(NhanVien.role == "picker").all()]
+        quan_ly_ket_noi.broadcast_sync(picker_ids, {
+            "type": "don_moi_cho_duyet",
+            "data": {"don_id": don.id},
+        })
         return {"status": "success", "message": f"Đơn #{don_id} đã được duyệt"}
     except HTTPException:
         db.rollback()

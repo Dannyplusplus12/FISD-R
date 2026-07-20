@@ -1,11 +1,24 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/realtime/realtime_socket.dart';
+import '../../core/session/phien_lam_viec.dart';
+import '../xac_thuc/xac_thuc_provider.dart';
 import 'don_hang_picker_repository.dart';
 
 final _repo = Provider((_) => DonHangPickerRepository());
 
-// Đơn đã duyệt — chờ picker nhận
-final donDaDuyetProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+// Đơn đã duyệt — chờ picker nhận. Tự làm mới khi có đơn mới được duyệt
+// (sự kiện `don_moi_cho_duyet` từ backend) để picker không phải tự kéo refresh.
+final donDaDuyetProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  final PhienLamViec? phien = ref.watch(xacThucProvider).value;
+  if (phien != null) {
+    final socket = ref.watch(realtimeSocketProvider);
+    socket.ketNoi(phien.id);
+    final sub = socket.messages.listen((msg) {
+      if (msg['type'] == 'don_moi_cho_duyet') ref.invalidateSelf();
+    });
+    ref.onDispose(sub.cancel);
+  }
   return ref.read(_repo).layDonDaDuyet();
 });
 

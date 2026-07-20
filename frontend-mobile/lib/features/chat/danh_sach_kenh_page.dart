@@ -4,6 +4,9 @@ import 'package:fisd_shared/fisd_shared.dart';
 
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../../core/thong_bao/da_xem_provider.dart';
+import '../../core/thong_bao/dem_chua_doc_provider.dart';
+import '../../core/thong_bao/nut_thong_bao.dart';
 import 'chat_provider.dart';
 import 'chat_repository.dart';
 import 'kenh_chi_tiet_page.dart';
@@ -110,29 +113,40 @@ class DanhSachKenhPage extends ConsumerWidget {
   }
 }
 
-class _KenhTile extends StatelessWidget {
+class _KenhTile extends ConsumerWidget {
   final KenhChat kenh;
   final PhienLamViec phien;
   const _KenhTile({required this.kenh, required this.phien});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mauTieuDe = kenh.laKenhDonHang ? AppColors.warning : AppColors.primary;
+    final chuaDoc = ref.watch(demChuaDocProvider.select((m) => (m[kenh.id] ?? 0) > 0));
+    final daXemKey = 'kenh_${kenh.id}';
+    final daXem = ref.watch(daXemProvider.select((s) => s.contains(daXemKey)));
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => KenhChiTietPage(kenh: kenh, phien: phien))),
+        onTap: () {
+          ref.read(daXemProvider.notifier).danhDauDaXem(daXemKey);
+          ref.read(demChuaDocProvider.notifier).xoa(kenh.id);
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => KenhChiTietPage(kenh: kenh, phien: phien)));
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: mauTieuDe.withOpacity(0.12),
-              child: Icon(kenh.laKenhDonHang ? Icons.local_shipping_outlined : Icons.tag,
-                  color: mauTieuDe, size: 20),
+            NutThongBao(
+              coThongBao: chuaDoc,
+              daXem: daXem,
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: mauTieuDe.withOpacity(0.12),
+                child: Icon(kenh.laKenhDonHang ? Icons.local_shipping_outlined : Icons.tag,
+                    color: mauTieuDe, size: 20),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

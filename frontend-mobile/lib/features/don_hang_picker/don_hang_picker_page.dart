@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../../core/thong_bao/da_xem_provider.dart';
+import '../../core/thong_bao/nut_thong_bao.dart';
 import '../xac_thuc/xac_thuc_provider.dart';
 import 'don_hang_picker_provider.dart';
 import 'soan_kho_page.dart';
@@ -24,6 +26,11 @@ class _DonHangPickerPageState extends ConsumerState<DonHangPickerPage>
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
+    _tab.addListener(() {
+      if (_tab.indexIsChanging) return;
+      final key = _tab.index == 0 ? 'sub_cho_nhan' : 'sub_dang_giao';
+      ref.read(daXemProvider.notifier).danhDauDaXem(key);
+    });
   }
 
   @override
@@ -34,6 +41,11 @@ class _DonHangPickerPageState extends ConsumerState<DonHangPickerPage>
 
   @override
   Widget build(BuildContext context) {
+    final coDonChoNhan = ref.watch(donDaDuyetProvider).valueOrNull?.isNotEmpty ?? false;
+    final coDonDangGiao =
+        ref.watch(donDaNhanProvider(widget.phien.id)).valueOrNull?.isNotEmpty ?? false;
+    final daXem = ref.watch(daXemProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -54,7 +66,22 @@ class _DonHangPickerPageState extends ConsumerState<DonHangPickerPage>
             Container(height: 1, color: AppColors.divider),
             TabBar(
               controller: _tab,
-              tabs: const [Tab(text: 'Chờ nhận'), Tab(text: 'Đang giao')],
+              tabs: [
+                Tab(
+                  child: NutThongBao(
+                    coThongBao: coDonChoNhan,
+                    daXem: daXem.contains('sub_cho_nhan'),
+                    child: const Text('Chờ nhận'),
+                  ),
+                ),
+                Tab(
+                  child: NutThongBao(
+                    coThongBao: coDonDangGiao,
+                    daXem: daXem.contains('sub_dang_giao'),
+                    child: const Text('Đang giao'),
+                  ),
+                ),
+              ],
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,

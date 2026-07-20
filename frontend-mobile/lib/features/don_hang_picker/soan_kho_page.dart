@@ -408,22 +408,33 @@ class _SoanKhoPageState extends ConsumerState<SoanKhoPage> {
           ),
         ),
 
-        // Dot indicator ở dưới
+        // Dot indicator ở dưới — xanh lá nếu mặt hàng đó đã chọn kho, để
+        // người dùng tự nhận ra hàng nào chưa xong mà lướt tới.
         Positioned(
           bottom: 12,
           left: 0, right: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(tongTrang, (i) => AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: _trangHienTai == i ? 20 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: _trangHienTai == i ? Colors.white : Colors.white38,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            )),
+            children: List.generate(tongTrang, (i) {
+              final daChonKho = i < draft.items.length && draft.items[i].selectedKhoId != null;
+              final dangO = _trangHienTai == i;
+              Color mau;
+              if (daChonKho) {
+                mau = dangO ? Colors.greenAccent : const Color(0xFF34C759);
+              } else {
+                mau = dangO ? Colors.white : Colors.white38;
+              }
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: dangO ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: mau,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
           ),
         ),
       ]),

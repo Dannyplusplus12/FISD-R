@@ -10,6 +10,8 @@ import 'package:fisd_shared/fisd_shared.dart';
 import '../../core/realtime/realtime_socket.dart';
 import '../../core/session/phien_lam_viec.dart';
 import '../../core/theme.dart';
+import '../../core/thong_bao/da_xem_provider.dart';
+import '../../core/thong_bao/dem_chua_doc_provider.dart';
 import 'chat_provider.dart';
 import 'chat_repository.dart';
 import 'goi_video_page.dart';
@@ -36,6 +38,9 @@ class _KenhChiTietPageState extends ConsumerState<KenhChiTietPage> {
   @override
   void initState() {
     super.initState();
+    ref.read(demChuaDocProvider.notifier).datKenhDangMo(widget.kenh.id);
+    ref.read(demChuaDocProvider.notifier).xoa(widget.kenh.id);
+    ref.read(daXemProvider.notifier).danhDauDaXem('kenh_${widget.kenh.id}');
     WidgetsBinding.instance.addPostFrameCallback((_) => _dangKyLangNgheCuocGoi());
   }
 
@@ -82,6 +87,7 @@ class _KenhChiTietPageState extends ConsumerState<KenhChiTietPage> {
 
   @override
   void dispose() {
+    ref.read(demChuaDocProvider.notifier).datKenhDangMo(null);
     _cuocGoiSub?.cancel();
     _noiDungCtrl.dispose();
     _scrollCtrl.dispose();
