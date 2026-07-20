@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/cap_nhat/cap_nhat_banner.dart';
 import 'features/trang_chu/trang_chu_page.dart';
 import 'features/xac_thuc/dang_nhap_page.dart';
 import 'features/xac_thuc/xac_thuc_provider.dart';
@@ -29,6 +30,8 @@ class FisdMobileApp extends StatelessWidget {
         fontFamily: 'SF Pro Display',
       ),
       home: const CongXacThuc(),
+      builder: (context, child) =>
+          CapNhatBanner(child: child ?? const SizedBox()),
     );
   }
 }

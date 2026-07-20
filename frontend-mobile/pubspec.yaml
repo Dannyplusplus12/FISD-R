@@ -30,6 +30,12 @@ dependencies:
   permission_handler: ^11.3.1
   file_picker: 12.0.0-beta.7
 
+  # Cập nhật OTA (code push) trên Android — không cần qua store.
+  shorebird_code_push: ^2.0.7
+
+  # Phát hiện service worker mới trên bản web (PWA).
+  web: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
